@@ -1,2 +1,0 @@
-class MongoModel(object):
-    pass

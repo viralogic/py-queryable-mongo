@@ -28,10 +28,14 @@ class MongoProvider(object):
     def database(self):
         return self._database
 
-    def query(self, collection):
+    def query(self, collection_type):
         """
         Creates a Queryable instance used to query an underlying collection
-        :param collection: a MongoModel type
+        :param collection: a collection class
         :returns Queryable instance
         """
-        return Queryable(self.database, collection_model)
+        if not hasattr(collection_type, "__collection_name__"):
+            raise AttributeError("__collection_name__ attribute not found in collection model")
+        if is_null_or_empty(collection.__collection_name__):
+            raise AttributeError("__collection_name__ must be set")
+        return Queryable(self.database[collection_type.__collection_name__])
