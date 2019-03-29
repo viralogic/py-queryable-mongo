@@ -1,0 +1,2 @@
+class MongoModel(object):
+    pass
