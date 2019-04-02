@@ -1,5 +1,5 @@
 import pymongo
-from . import is_null_or_empty
+from .queryable import Queryable
 
 
 class MongoProvider(object):
@@ -25,6 +25,10 @@ class MongoProvider(object):
         self._database = self.__connection[db_name]
 
     @property
+    def connection(self):
+        return self.__connection
+
+    @property
     def database(self):
         return self._database
 
@@ -36,6 +40,6 @@ class MongoProvider(object):
         """
         if not hasattr(collection_type, "__collection_name__"):
             raise AttributeError("__collection_name__ attribute not found in collection model")
-        if is_null_or_empty(collection.__collection_name__):
+        if collection_type.__collection_name__ is None or len(collection_type.__collection_name__) == 0:
             raise AttributeError("__collection_name__ must be set")
-        return Queryable(self.database[collection_type.__collection_name__])
+        return Queryable(self.database, collection_type)

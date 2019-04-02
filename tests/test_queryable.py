@@ -1,18 +1,7 @@
 from unittest import TestCase
 import pymongo
 from py_linq_mongo.queryable import Queryable
-
-
-class LeagueModel(object):
-    __collection_name__ = "team"
-
-
-class InvalidAttributeModel(object):
-    __invalid_name__ = "team"
-
-
-class EmptyCollectionNameModel(object):
-    __collection_name__ = None
+from . import LeagueModel, InvalidAttributeModel, EmptyCollectionNameModel
 
 
 class QueryableTests(TestCase):
@@ -40,6 +29,6 @@ class QueryableTests(TestCase):
         self.assertRaises(AttributeError, Queryable, self.database, EmptyCollectionNameModel)
 
     def test_count(self):
-        query = Queryable(self.collection)
+        query = Queryable(self.database, LeagueModel)
         count = query.count()
         self.assertEqual(1, query.count())
