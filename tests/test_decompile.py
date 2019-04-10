@@ -10,4 +10,3 @@ class TestDecompilers(TestCase):
         f = lambda x: x.name == "Western Hockey League"
         decompiler = LambdaDecompiler()
         tree = decompiler.decompile(f.__code__)
-

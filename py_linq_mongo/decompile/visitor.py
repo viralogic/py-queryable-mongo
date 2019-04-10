@@ -24,7 +24,7 @@ class InstructionVisitor(object):
         """
         instruction = self.stack.pop() if i is None else i
         if instruction is None:
-            return
+            return None
         visit_method = getattr(self, "visit_{0}".format(instruction.opname), None)
         if visit_method is None:
             raise AttributeError("Cannot find method visit_{0}".format(instruction.op_name))
@@ -35,8 +35,12 @@ class InstructionVisitor(object):
         Performs visit operation on a RETURN_VALUE instruction
         param i: an instance of an instruction
         """
-        # return ast.Return(self.visit(i))
-        raise NotImplementedError()
+        next_instruction = self.stack.pop()
+        return ast.Return(
+            value=self.visit(next_instruction),
+            lineno=i.starts_line,
+            col_offset=i.offset
+        )
 
     def visit_COMPARE_OP(self, i):
         """
@@ -67,20 +71,19 @@ class InstructionVisitor(object):
 
     def __determine_const(self, argval, lineno, offset):
         if isinstance(argval, str):
-            return ast.Str(s=argval, lineno=lineno, col_offset=offset, is_jump_target=False)
+            return ast.Str(s=argval, lineno=lineno, col_offset=offset)
         if isinstance(argval, (int, float, complex)):
-            return ast.Num(n=argval, lineno=lineno, col_offset=offset, is_jump_target=False)
+            return ast.Num(n=argval, lineno=lineno, col_offset=offset)
         if isinstance(argval, tuple):
             elts = []
             for item in i.argval:
                 node = self.__determine_const(item)
                 node.lineno = lineno
                 node.col_offset = offset
-                node.is_jump_target = False
                 elts.append(node)
-            return ast.Tuple(elts=elts, ctx=ast.Load(), lineno=lineno, col_offset=offset, is_jump_target=False)
+            return ast.Tuple(elts=elts, ctx=ast.Load(), lineno=lineno, col_offset=offset)
         if i.argval is None:
-            return ast.Name(id='None', ctx=_ast.Load(), lineno=lineno, col_offset=offset, is_jump_target=False)
+            return ast.Name(id='None', ctx=ast.Load(), lineno=lineno, col_offset=offset)
         return arg
 
     def visit_LOAD_CONST(self, i):
@@ -93,3 +96,29 @@ class InstructionVisitor(object):
         node.col_offset = 0
         node.is_jump_target = False
         return node
+
+    def visit_LOAD_FAST(self, i):
+        """
+        Performs visit operation on LOAD_FAST instruction
+        :param i: an Instruction instance
+        """
+        return ast.Name(
+            id=i.argval,
+            ctx=ast.Load(),
+            lineno=i.starts_line,
+            col_offset=i.offset
+        )
+
+    def visit_LOAD_ATTR(self, i):
+        """
+        Performs visit operationon LOAD_ATTR instruction
+        :param i: an Instruction instance
+        """
+        name_instruction = self.stack.pop()
+        return ast.Attribute(
+            value=self.visit(name_instruction),
+            attr=i.argval,
+            ctx=ast.Load(),
+            lineno=i.starts_line,
+            col_offset=i.offset
+        )
