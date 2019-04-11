@@ -1,5 +1,5 @@
 from ast import NodeVisitor
-import meta
+from .decompile import LambdaDecompiler
 
 
 class LambdaExpression(object):
@@ -10,7 +10,8 @@ class LambdaExpression(object):
     """
     @staticmethod
     def parse(func):
-        tree = meta.decompiler.decompile_func(func)
+        decompiler = LambdaDecompiler()
+        tree = decompiler.decompile(func)
         translator = CollectionLambdaTranslator()
         translator.generic_visit(tree)
         return tree
