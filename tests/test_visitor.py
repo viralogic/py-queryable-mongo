@@ -89,29 +89,12 @@ class InstructionVisitorTest(TestCase):
         self.assertIsInstance(t, ast.Name)
         self.assertEqual('x', t.id)
 
-    def test_Return_Value(self):
-        instruction = dis.Instruction(
-            opname='RETURN_VALUE',
-            opcode=83,
-            arg=None,
-            argval=None,
-            argrepr='',
-            offset=8,
-            starts_line=None,
-            is_jump_target=False
-        )
-        visitor = InstructionVisitor([instruction])
-        t = visitor.visit()
-        self.assertIsInstance(t, ast.Return)
-        self.assertIsNone(t.value)
-
     def test_simple_lambda(self):
         instructions = dis.get_instructions(lambda x: x.name == "Western Hockey League")
         visitor = InstructionVisitor(instructions)
         t = visitor.visit()
-        self.assertIsInstance(t, ast.Return)
-        self.assertIsInstance(t.value, ast.Compare)
-        self.assertIsInstance(t.value.left, ast.Attribute)
-        self.assertEqual(1, len(t.value.comparators))
-        self.assertIsInstance(t.value.comparators[0], ast.Str)
-        self.assertIsInstance(t.value.left.value, ast.Name)
+        self.assertIsInstance(t, ast.Compare)
+        self.assertIsInstance(t.left, ast.Attribute)
+        self.assertEqual(1, len(t.comparators))
+        self.assertIsInstance(t.comparators[0], ast.Str)
+        self.assertIsInstance(t.left.value, ast.Name)

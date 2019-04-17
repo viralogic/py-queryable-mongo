@@ -11,7 +11,7 @@ class LambdaExpression(object):
     @staticmethod
     def parse(func):
         decompiler = LambdaDecompiler()
-        tree = decompiler.decompile(func)
+        tree = decompiler.decompile(func.__code__)
         translator = CollectionLambdaTranslator()
         translator.generic_visit(tree)
         return tree

@@ -1,27 +1,47 @@
 import dis
 import ast
-from ..data_structures import Stack
+from ..data_structures import Stack, Queue
 
 
 class InstructionVisitor(object):
     """
     Performs operations on a set of instructions
     """
-    def __init__(self, instructions):
+    def __init__(self, instructions=[], stack=None):
         """
         Default constructor
         :param instructions: an iterable of instruction objects
         """
-        self.stack = Stack()
-        for i in instructions:
-            if not isinstance(i, dis.Instruction):
-                raise TypeError("instruction is not an instance of dis.Instruction")
-            self.stack.push(i)
+        if stack is not None:
+            self.stack = stack
+        else:
+            branch_pts = ['JUMP_IF_FALSE_OR_POP', 'JUMP_IF_TRUE_OR_POP']
+            self.stack = Stack()
+            instructions = list(instructions)
+            idx = 0
+            while idx < len(instructions):
+                i = instructions[idx]
+                if not isinstance(i, dis.Instruction):
+                    raise TypeError("instruction is not an instance of dis.Instruction")
+                if i.opname == "RETURN_VALUE":
+                    idx += 1
+                    continue
+                if i.opname in branch_pts:
+                    visitor = InstructionVisitor(stack=self.stack.copy())
+                    self.stack = Queue()
+                    self.stack.push(i)
+                    self.stack.push(visitor)
+                    instructions = list(reversed(instructions[idx + 1:]))
+                    idx = 0
+                    continue
+                self.stack.push(i)
+                idx += 1
 
     def visit(self, i=None):
         """
         Pops the first Instruction on the stack and performs visit as given by the op_name
         """
+        self.stack = Stack(self.stack.items)
         instruction = self.stack.pop() if i is None else i
         if instruction is None:
             return None
@@ -29,18 +49,6 @@ class InstructionVisitor(object):
         if visit_method is None:
             raise AttributeError("Cannot find method visit_{0}".format(instruction.op_name))
         return visit_method(instruction)
-
-    def visit_RETURN_VALUE(self, i):
-        """
-        Performs visit operation on a RETURN_VALUE instruction
-        param i: an instance of an instruction
-        """
-        next_instruction = self.stack.pop()
-        return ast.Return(
-            value=self.visit(next_instruction),
-            lineno=i.starts_line,
-            col_offset=i.offset
-        )
 
     def visit_COMPARE_OP(self, i):
         """
@@ -111,7 +119,7 @@ class InstructionVisitor(object):
 
     def visit_LOAD_ATTR(self, i):
         """
-        Performs visit operationon LOAD_ATTR instruction
+        Performs visit operation on LOAD_ATTR instruction
         :param i: an Instruction instance
         """
         name_instruction = self.stack.pop()
@@ -121,4 +129,12 @@ class InstructionVisitor(object):
             ctx=ast.Load(),
             lineno=i.starts_line,
             col_offset=i.offset
+        )
+
+    def visit_JUMP_IF_FALSE_OR_POP(self, i):
+        left_ast = self.stack.pop().visit()
+        right_instruction = self.stack.pop()
+        return ast.BoolOp(
+            op=ast.And(),
+            values=[left_ast, self.visit(right_instruction)]
         )

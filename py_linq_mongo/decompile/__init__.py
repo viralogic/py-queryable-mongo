@@ -44,10 +44,14 @@ class LambdaDecompiler(Decompiler):
         """
         instructions = list(instructions)
         visitor = InstructionVisitor(instructions)
-        body = visitor.visit()
+        lineno = instructions[0].starts_line if instructions is not None and len(instructions) > 0 else 0
+        body = ast.Return(
+            value=visitor.visit(),
+            lineno=lineno,
+            col_offset=0
+        )
         args = [ast.Name(id=arg, ctx=ast.Param()) for arg in code.co_varnames[:code.co_argcount]]
         co_locals = code.co_varnames[code.co_argcount:]
-        lineno = instructions[0].starts_line if body else 0
         return ast.Lambda(
             args=ast.arguments(
                 args=args,
