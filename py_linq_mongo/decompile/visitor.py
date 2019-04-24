@@ -16,6 +16,7 @@ class InstructionVisitor(object):
             self.stack = stack
         else:
             branch_pts = ['JUMP_IF_FALSE_OR_POP', 'JUMP_IF_TRUE_OR_POP']
+            if_pts = ['POP_JUMP_IF_FALSE']
             self.stack = Stack()
             instructions = list(instructions)
             idx = 0
@@ -32,6 +33,14 @@ class InstructionVisitor(object):
                     self.stack.push(i)
                     self.stack.push(visitor)
                     instructions = list(reversed(instructions[idx + 1:]))
+                    idx = 0
+                    continue
+                if i.opname in if_pts:
+                    visitor = InstructionVisitor(stack=self.stack.copy())
+                    self.stack = Queue()
+                    self.stack.push(i)
+                    self.stack.push(visitor)
+                    instructions = instructions[idx + 1:]
                     idx = 0
                     continue
                 self.stack.push(i)
@@ -137,4 +146,22 @@ class InstructionVisitor(object):
         return ast.BoolOp(
             op=ast.And(),
             values=[left_ast, self.visit(right_instruction)]
+        )
+
+    def visit_JUMP_IF_TRUE_OR_POP(self, i):
+        left_ast = self.stack.pop().visit()
+        right_instruction = self.stack.pop()
+        return ast.BoolOp(
+            op=ast.Or(),
+            values=[left_ast, self.visit(right_instruction)]
+        )
+
+    def visit_POP_JUMP_IF_FALSE(self, i):
+        left_ast = self.stack.pop().visit()
+        body_instruction = self.stack.pop()
+        right_instruction = self.stack.pop()
+        return ast.IfExp(
+            test=left_ast,
+            body=self.visit(body_instruction),
+            orelse=self.visit(right_instruction)
         )
