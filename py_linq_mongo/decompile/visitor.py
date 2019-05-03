@@ -86,33 +86,35 @@ class InstructionVisitor(object):
             col_offset=i.offset
         )
 
-    def __determine_const(self, argval, lineno, offset):
-        if isinstance(argval, str):
-            return ast.Str(s=argval, lineno=lineno, col_offset=offset)
-        if isinstance(argval, (int, float, complex)):
-            return ast.Num(n=argval, lineno=lineno, col_offset=offset)
-        if isinstance(argval, tuple):
-            elts = []
+    def __determine_const(self, i):
+        if isinstance(i.argval, str):
+            return ast.Str(s=i.argval, lineno=i.starts_line, col_offset=i.offset, is_jump_target=False)
+        if isinstance(i.argval, (int, float, complex)):
+            return ast.Num(n=i.argval, lineno=i.starts_line, col_offset=i.offset, is_jump_target=False)
+        if isinstance(i.argval, tuple):
+            args = []
             for item in i.argval:
-                node = self.__determine_const(item)
-                node.lineno = lineno
-                node.col_offset = offset
-                elts.append(node)
-            return ast.Tuple(elts=elts, ctx=ast.Load(), lineno=lineno, col_offset=offset)
+                args.append(self.__determine_const(dis.Instruction(
+                    opname=i.opname,
+                    opcode=i.opcode,
+                    arg=i.arg,
+                    argval=item,
+                    argrepr=item.__repr__(),
+                    offset=i.offset,
+                    starts_line=i.starts_line,
+                    is_jump_target=i.is_jump_target
+                )))
+            return args
         if i.argval is None:
-            return ast.Name(id='None', ctx=ast.Load(), lineno=lineno, col_offset=offset)
-        return arg
+            return ast.Name(id='None', ctx=ast.Load(), lineno=i.starts_line, col_offset=i.offset, is_jump_target=False)
+        return i.argval
 
     def visit_LOAD_CONST(self, i):
         """
         Performs visit operation on LOAD_CONST instruction
         :param i: an Instruction instance
         """
-        node = self.__determine_const(i.argval, i.starts_line, i.offset)
-        node.lineno = i.starts_line
-        node.col_offset = 0
-        node.is_jump_target = False
-        return node
+        return self.__determine_const(i)
 
     def visit_LOAD_FAST(self, i):
         """
@@ -165,3 +167,49 @@ class InstructionVisitor(object):
             body=self.visit(body_instruction),
             orelse=self.visit(right_instruction)
         )
+
+    def visit_LOAD_GLOBAL(self, i):
+        return ast.Name(
+            id=i.argval,
+            ctx=ast.Load(),
+            lineno=i.starts_line,
+            col_offset=i.offset
+        )
+
+    def visit_BUILD_TUPLE(self, i):
+        nodes = []
+        while self.stack.top() is not None:
+            node = self.stack.pop()
+            nodes.append(self.visit(node))
+        return ast.Tuple(
+            elts=list(reversed(nodes)),
+            ctx=ast.Load()
+        )
+
+    def visit_BUILD_LIST(self, i):
+        nodes = []
+        while self.stack.top() is not None:
+            node = self.stack.pop()
+            nodes.append(self.visit(node))
+        return ast.List(
+            elts=list(reversed(nodes)),
+            ctx=ast.Load()
+        )
+
+    def visit_BUILD_CONST_KEY_MAP(self, i):
+        keys = self.stack.pop()
+        num_keys = len(keys.argval)
+        keys_attr = self.visit(keys)
+        nodes = []
+        j = 0
+        while j < num_keys:
+            node = self.stack.pop()
+            nodes.append(self.visit(node))
+            j += 1
+        return ast.Dict(
+            keys=keys_attr,
+            values=list(reversed(nodes)),
+            ctx=ast.Load()
+        )
+
+

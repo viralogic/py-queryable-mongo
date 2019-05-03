@@ -89,6 +89,22 @@ class InstructionVisitorTest(TestCase):
         self.assertIsInstance(t, ast.Name)
         self.assertEqual('x', t.id)
 
+    def test_Load_Global(self):
+        instruction = dis.Instruction(
+            opname='LOAD_GLOBAL',
+            opcode=116,
+            arg=0,
+            argval='len',
+            argrepr='len',
+            offset=0,
+            starts_line=1,
+            is_jump_target=False
+        )
+        visitor = InstructionVisitor([instruction])
+        t = visitor.visit()
+        self.assertIsInstance(t, ast.Name)
+        self.assertEqual('len', t.id)
+
     def test_simple_lambda(self):
         instructions = dis.get_instructions(lambda x: x.name == "Western Hockey League")
         visitor = InstructionVisitor(instructions)
