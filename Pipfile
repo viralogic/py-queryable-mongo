@@ -12,7 +12,6 @@ pytest-cov = "*"
 
 [packages]
 pymongo = "*"
-meta = "*"
 
 [requires]
 python_version = "3.7"

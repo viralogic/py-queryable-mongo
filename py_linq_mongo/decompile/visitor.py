@@ -104,7 +104,10 @@ class InstructionVisitor(object):
                     starts_line=i.starts_line,
                     is_jump_target=i.is_jump_target
                 )))
-            return args
+            return ast.Tuple(
+                elts=args,
+                ctx=ast.Load()
+            )
         if i.argval is None:
             return ast.Name(id='None', ctx=ast.Load(), lineno=i.starts_line, col_offset=i.offset, is_jump_target=False)
         return i.argval
@@ -207,9 +210,8 @@ class InstructionVisitor(object):
             nodes.append(self.visit(node))
             j += 1
         return ast.Dict(
-            keys=keys_attr,
+            keys=keys_attr.elts,
             values=list(reversed(nodes)),
             ctx=ast.Load()
         )
-
 

@@ -7,6 +7,9 @@ class TestDecompilers(TestCase):
     """
     Test cases for Decompiler abstract class
     """
+    def setUp(self):
+        self.maxDiff = None
+
     def test_simple_lambda(self):
         decompiler = LambdaDecompiler()
         tree = decompiler.decompile((lambda x: x.name == "Western Hockey League").__code__)
@@ -40,7 +43,6 @@ class TestDecompilers(TestCase):
         )
 
     def test_tuple(self):
-        self.maxDiff = None
         decompiler = LambdaDecompiler()
         tree = decompiler.decompile((lambda x: (x.name, x.season)).__code__)
         self.assertEqual(
@@ -57,14 +59,20 @@ class TestDecompilers(TestCase):
         )
 
     def test_dict(self):
-        self.maxDiff = None
         decompiler = LambdaDecompiler()
         tree = decompiler.decompile((lambda x: {
             'name': x.name,
             'season': x.season
         }).__code__)
-        print(ast.dump(tree))
         self.assertEqual(
             "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=Dict(keys=[Str(s='name'), Str(s='season')], values=[Attribute(value=Name(id='x', ctx=Load()), attr='name', ctx=Load()), Attribute(value=Name(id='x', ctx=Load()), attr='season', ctx=Load())])))",
+            ast.dump(tree)
+        )
+
+    def test_in(self):
+        decompiler = LambdaDecompiler()
+        tree = decompiler.decompile((lambda x: x.name in ['Western Hockey League']).__code__)
+        self.assertEqual(
+            "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='name', ctx=Load()), ops=[In()], comparators=[Tuple(elts=[Str(s='Western Hockey League')], ctx=Load())])))",
             ast.dump(tree)
         )
