@@ -76,3 +76,43 @@ class TestDecompilers(TestCase):
             "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='name', ctx=Load()), ops=[In()], comparators=[Tuple(elts=[Str(s='Western Hockey League')], ctx=Load())])))",
             ast.dump(tree)
         )
+
+    def test_add(self):
+        decompiler = LambdaDecompiler()
+        tree = decompiler.decompile((lambda x: x.goals + x.assists).__code__)
+        self.assertEqual(
+            "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=BinOp(left=Attribute(value=Name(id='x', ctx=Load()), attr='goals', ctx=Load()), op=Add(), right=Attribute(value=Name(id='x', ctx=Load()), attr='assists', ctx=Load()))))",
+            ast.dump(tree)
+        )
+
+    def test_div(self):
+        decompiler = LambdaDecompiler()
+        tree = decompiler.decompile((lambda x: x.goals_against / x.games_played).__code__)
+        self.assertEqual(
+            "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=BinOp(left=Attribute(value=Name(id='x', ctx=Load()), attr='goals_against', ctx=Load()), op=Div(), right=Attribute(value=Name(id='x', ctx=Load()), attr='games_played', ctx=Load()))))",
+            ast.dump(tree)
+        )
+
+    def test_minus(self):
+        decompiler = LambdaDecompiler()
+        tree = decompiler.decompile((lambda x: x.points - x.assists).__code__)
+        self.assertEqual(
+            "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=BinOp(left=Attribute(value=Name(id='x', ctx=Load()), attr='points', ctx=Load()), op=Sub(), right=Attribute(value=Name(id='x', ctx=Load()), attr='assists', ctx=Load()))))",
+            ast.dump(tree)
+        )
+
+    def test_mod(self):
+        decompiler = LambdaDecompiler()
+        tree = decompiler.decompile((lambda x: x.goals_against % x.games_played).__code__)
+        self.assertEqual(
+            "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=BinOp(left=Attribute(value=Name(id='x', ctx=Load()), attr='goals_against', ctx=Load()), op=Mod(), right=Attribute(value=Name(id='x', ctx=Load()), attr='games_played', ctx=Load()))))",
+            ast.dump(tree)
+        )
+
+    def test_mult(self):
+        decompiler = LambdaDecompiler()
+        tree = decompiler.decompile((lambda x: x.points * x.assists).__code__)
+        self.assertEqual(
+            "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=BinOp(left=Attribute(value=Name(id='x', ctx=Load()), attr='points', ctx=Load()), op=Mult(), right=Attribute(value=Name(id='x', ctx=Load()), attr='assists', ctx=Load()))))",
+            ast.dump(tree)
+        )

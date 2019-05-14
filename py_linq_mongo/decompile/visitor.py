@@ -56,7 +56,7 @@ class InstructionVisitor(object):
             return None
         visit_method = getattr(self, "visit_{0}".format(instruction.opname), None)
         if visit_method is None:
-            raise AttributeError("Cannot find method visit_{0}".format(instruction.op_name))
+            raise AttributeError("Cannot find method visit_{0}".format(instruction.opname))
         return visit_method(instruction)
 
     def visit_COMPARE_OP(self, i):
@@ -215,3 +215,47 @@ class InstructionVisitor(object):
             ctx=ast.Load()
         )
 
+    def visit_BINARY_ADD(self, i):
+        right = self.visit(self.stack.pop())
+        left = self.visit(self.stack.pop())
+        return ast.BinOp(
+            left=left,
+            op=ast.Add(),
+            right=right
+        )
+
+    def visit_BINARY_TRUE_DIVIDE(self, i):
+        right = self.visit(self.stack.pop())
+        left = self.visit(self.stack.pop())
+        return ast.BinOp(
+            left=left,
+            op=ast.Div(),
+            right=right
+        )
+
+    def visit_BINARY_SUBTRACT(self, i):
+        right = self.visit(self.stack.pop())
+        left = self.visit(self.stack.pop())
+        return ast.BinOp(
+            left=left,
+            op=ast.Sub(),
+            right=right
+        )
+
+    def visit_BINARY_MODULO(self, i):
+        right = self.visit(self.stack.pop())
+        left = self.visit(self.stack.pop())
+        return ast.BinOp(
+            left=left,
+            op=ast.Mod(),
+            right=right
+        )
+
+    def visit_BINARY_MULTIPLY(self, i):
+        right = self.visit(self.stack.pop())
+        left = self.visit(self.stack.pop())
+        return ast.BinOp(
+            left=left,
+            op=ast.Mult(),
+            right=right
+        )

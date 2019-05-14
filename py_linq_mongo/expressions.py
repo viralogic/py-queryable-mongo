@@ -1,4 +1,4 @@
-from ast import NodeVisitor
+import ast
 from .decompile import LambdaDecompiler
 
 
@@ -17,7 +17,7 @@ class LambdaExpression(object):
         return tree
 
 
-class CollectionLambdaTranslator(NodeVisitor):
+class CollectionLambdaTranslator(ast.NodeVisitor):
     """
     Visitor for converting lambda expressions into Mongo query
     """
@@ -28,35 +28,42 @@ class CollectionLambdaTranslator(NodeVisitor):
         """
         super(CollectionLambdaTranslator, self).__init__()
 
+    def visit_Return(self, node):
+        self.generic_visit(node)
+        attr_node = getattr(node, "value")
+        members = attr_node.__dict__.keys()
+        for a in members:
+            setattr(node, a, getattr(attr_node, a))
+
     def visit_Eq(self, node):
         node.mongo = "$eq"
 
     def visit_LtE(self, node):
-        node.mongo = u"$lte"
+        node.mongo = "$lte"
 
     def visit_GtE(self, node):
-        node.mongo = u"$gte"
+        node.mongo = "$gte"
 
     def visit_Gt(self, node):
-        node.mongo = u"$gt"
+        node.mongo = "$gt"
 
     def visit_Lt(self, node):
-        node.mongo = u"$lt"
+        node.mongo = "$lt"
 
     def visit_Add(self, node):
-        node.mongo = u"$add"
+        node.mongo = "$add"
 
     def visit_Sub(self, node):
-        node.mongo = u"$subtract"
+        node.mongo = "$subtract"
 
     def visit_Div(self, node):
-        node.mongo = u"$divide"
+        node.mongo = "$divide"
 
     def visit_Mult(self, node):
-        node.mongo = u"$multiply"
+        node.mongo = "$multiply"
 
     def visit_Mod(self, node):
-        node.mongo = u"$mod"
+        node.mongo = "$mod"
 
     def visit_Num(self, node):
         node.mongo = node.n
@@ -80,4 +87,7 @@ class CollectionLambdaTranslator(NodeVisitor):
         node.mongo = "$not"
 
     def visit_NotEq(self, node):
-        node.mongo = u"$ne"
+        node.mongo = "$ne"
+
+    def visit_Attribute(self, node):
+        node.mongo = "{0}.{1}".format(node.value.id, node.attr)
