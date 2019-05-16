@@ -16,7 +16,7 @@ class TestCollectionLambdaTranslator(TestCase):
     def test_LtE(self):
         t = LambdaExpression.parse(lambda x: x.gpa <= 10)
         self.assertIsInstance(t.body.value.ops[0], ast.LtE)
-        self.assertEqual(t.body.value.ops[0].mongo, "$lte")
+        self.assertEqual("$lte", t.body.value.ops[0].mongo)
 
     def test_Lt(self):
         t = LambdaExpression.parse(lambda x: x.gpa < 10)
@@ -36,42 +36,42 @@ class TestCollectionLambdaTranslator(TestCase):
     def test_In(self):
         t = LambdaExpression.parse(lambda x: x.first_name in "Bruce")
         self.assertIsInstance(t.body.value.ops[0], ast.In)
-        self.assertEqual(t.body.value.ops[0].mongo, u"$in")
+        self.assertEqual(t.body.value.ops[0].mongo, "$in")
 
     def test_NotIn(self):
         t = LambdaExpression.parse(lambda x: x.last_name not in "Fenske")
         self.assertIsInstance(t.body.value.ops[0], ast.NotIn)
-        self.assertEqual(t.body.value.ops[0].mongo, u"$nin")
+        self.assertEqual(t.body.value.ops[0].mongo, "$nin")
 
     def test_plus(self):
         t = LambdaExpression.parse(lambda x: x.gpa + 10)
         self.assertIsInstance(t.body.value.op, ast.Add)
-        self.assertEqual(t.body.value.op.mongo, u"$add")
+        self.assertEqual(t.body.value.op.mongo, "$add")
 
     def test_minus(self):
         t = LambdaExpression.parse(lambda x: x.gpa - 10)
         self.assertIsInstance(t.body.value.op, ast.Sub)
-        self.assertEqual(t.body.value.op.mongo, u"$subtract")
+        self.assertEqual(t.body.value.op.mongo, "$subtract")
 
     def test_div(self):
         t = LambdaExpression.parse(lambda x: x.gpa / 10)
         self.assertIsInstance(t.body.value.op, ast.Div)
-        self.assertEqual(t.body.op.mongo, u"$divide")
+        self.assertEqual(t.body.op.mongo, "$divide")
 
     def test_mult(self):
         t = LambdaExpression.parse(lambda x: x.gpa * 10)
         self.assertIsInstance(t.body.value.op, ast.Mult)
-        self.assertEquals
+        self.assertEqual(t.body.op.mongo, "$multiply")
 
     def test_mod(self):
         t = LambdaExpression.parse(lambda x: x.gpa % 2)
         self.assertIsInstance(t.body.value.op, ast.Mod)
-        self.assertEqual(t.body.value.op.mongo, u"$mod")
+        self.assertEqual(t.body.value.op.mongo, "$mod")
 
     def test_num_binop(self):
         t = LambdaExpression.parse(lambda x: x.gpa * 10)
-        self.assertIsInstance(t.body.right, ast.Num, u"Should be a Num instance")
-        self.assertEquals(t.body.right.mongo, t.body.right.n)
+        self.assertIsInstance(t.body.right, ast.Num, "Should be a Num instance")
+        self.assertEqual(t.body.right.mongo, t.body.right.n)
 
     # def test_return(self):
     #     t = SqlLambdaTranslatorTest.translate(lambda x: lambda x: (x.gpa > 10 and x.first_name == u'Bruce') or x.first_name == u'Dustin')
@@ -83,58 +83,40 @@ class TestCollectionLambdaTranslator(TestCase):
     def test_num_compare(self):
         t = LambdaExpression.parse(lambda x: x.gpa >= 10)
         self.assertIsInstance(t.body.comparators[0], ast.Num)
-        self.assertEquals(t.body.comparators[0].mongo, t.body.comparators[0].n)
+        self.assertEqual(t.body.comparators[0].mongo, t.body.comparators[0].n)
 
     def test_str(self):
         t = LambdaExpression.parse(lambda x: x.first_name == 'Bruce')
         self.assertIsInstance(t.body.comparators[0], ast.Str)
-        self.assertEquals(t.body.comparators[0].mongo, t.body.comparators[0].s)
+        self.assertEqual(t.body.comparators[0].mongo, t.body.comparators[0].s)
 
     def test_attribute(self):
-        t = LambdaExpression.parse(lambda x: x.first_name == u"Bruce")
+        t = LambdaExpression.parse(lambda x: x.first_name == "Bruce")
         self.assertIsInstance(t.body.left, ast.Attribute)
-        self.assertEquals(u"x.first_name", t.body.left.mongo)
+        self.assertEqual("first_name", t.body.left.mongo)
 
         t = LambdaExpression.parse(lambda s: s)
         self.assertIsInstance(t.body.id, str)
-        self.assertEquals("s", t.body.id)
+        self.assertEqual("s", t.body.id)
 
-    # def test_and(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_and)
-    #     self.assertIsInstance(t.body.op, ast.And, u"Should be And instance")
-    #     self.assertEquals(
-    #         t.body.op.sql,
-    #         u"AND",
-    #         u"And() node should have sql property equal 'AND'"
-    #     )
+    def test_and(self):
+        t = LambdaExpression.parse(lambda x: x.gpa >= 10 and x.gpa <= 50)
+        self.assertIsInstance(t.body.op, ast.And)
+        self.assertEqual(t.body.op.mongo, "$and")
 
-    # def test_or(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_or)
-    #     self.assertIsInstance(t.body.op, ast.Or, u"Should be Or instance")
-    #     self.assertEquals(
-    #         t.body.op.sql,
-    #         u"OR",
-    #         u"Or() node should have sql property equal 'Or'"
-    #     )
+    def test_or(self):
+        t = LambdaExpression.parse(lambda x: x.gpa >= 10 or x.first_name == u'Bruce')
+        self.assertIsInstance(t.body.op, ast.Or)
+        self.assertEqual(t.body.op.mongo, "$or")
 
-    # def test_compare_simple(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_lte)
-    #     correct = u"x.gpa <= 10"
-    #     self.assertEquals(
-    #         t.body.sql,
-    #         correct,
-    #         u"{0} should be same as {1}".format(t.body.sql, correct)
-    #     )
+    def test_compare_simple(self):
+        t = LambdaExpression.parse(lambda x: x.gpa <= 10)
+        self.assertIsInstance(t.body.value, ast.Compare)
+        self.assertEqual('{"gpa": {"$lte": 10}}', t.body.value.mongo)
 
-    # def test_compare_complex(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_and)
-    #     values = t.body.values
-    #     corrects = [u"x.gpa >= 10", u"x.gpa <= 50"]
-    #     for i in range(0, len(values) - 1, 1):
-    #         correct = corrects[i]
-    #         value = values[i].sql
-    #         self.assertEquals(
-    #             value, correct, u"{0} should equal {1}".format(value, correct))
+    def test_compare_complex(self):
+        t = LambdaExpression.parse(lambda x: x.gpa >= 10 and x.gpa <= 50)
+        self.assertIsInstance(t.body.value, ast.BoolOp)
 
     # def test_boolop(self):
     #     t = SqlLambdaTranslatorTest.translate(self.simple_and)

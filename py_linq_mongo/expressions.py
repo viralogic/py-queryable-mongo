@@ -1,4 +1,5 @@
 import ast
+import json
 from .decompile import LambdaDecompiler
 
 
@@ -90,4 +91,11 @@ class CollectionLambdaTranslator(ast.NodeVisitor):
         node.mongo = "$ne"
 
     def visit_Attribute(self, node):
-        node.mongo = "{0}.{1}".format(node.value.id, node.attr)
+        node.mongo = node.attr
+
+    def visit_Compare(self, node):
+        self.generic_visit(node)
+        v = {}
+        v[node.left.mongo] = {}
+        v[node.left.mongo][node.ops[0].mongo] = node.comparators[0].mongo
+        node.mongo = json.dumps(v)
