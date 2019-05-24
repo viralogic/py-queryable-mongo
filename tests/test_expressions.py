@@ -114,27 +114,20 @@ class TestCollectionLambdaTranslator(TestCase):
         self.assertIsInstance(t.body.value, ast.Compare)
         self.assertEqual('{"gpa": {"$lte": 10}}', t.body.value.mongo)
 
-    def test_compare_complex(self):
+    def test_boolop(self):
         t = LambdaExpression.parse(lambda x: x.gpa >= 10 and x.gpa <= 50)
         self.assertIsInstance(t.body.value, ast.BoolOp)
+        self.assertEqual('{"$and": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}"]}', t.body.value.mongo)
 
-    # def test_boolop(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_and)
-    #     correct = u"x.gpa >= 10 AND x.gpa <= 50"
-    #     self.assertEqual(
-    #         t.body.sql,
-    #         correct,
-    #         u"{0} should equal {1}".format(t.body.sql, correct)
-    #     )
+    def test_boolop_complex(self):
+        t = LambdaExpression.parse(lambda x: x.gpa >= 10 and x.gpa <= 50 and x.last_name == "Fenske")
+        self.assertIsInstance(t.body.value, ast.BoolOp)
+        self.assertEqual('{"$and": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}', t.body.mongo)
 
-    # def test_binop(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_plus)
-    #     correct = u"x.gpa + 10"
-    #     self.assertEqual(
-    #         t.body.sql,
-    #         correct,
-    #         u"{0} should equal {1}".format(t.body.sql, correct)
-    #     )
+    def test_binop(self):
+        t = LambdaExpression.parse(lambda x: x.gpa + 10)
+        self.assertIsInstance(t.body.value, ast.BinOp)
+        self.assertEqual('{"$add": ["$gpa", 10]}', t.body.mongo)
 
     # def test_not(self):
     #     t = SqlLambdaTranslatorTest.translate(self.simple_not)

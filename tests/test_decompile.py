@@ -26,6 +26,14 @@ class TestDecompilers(TestCase):
             ast.dump(tree)
         )
 
+    def test_and_complex(self):
+        decompiler = LambdaDecompiler()
+        tree = decompiler.decompile((lambda x: x.gpa >= 10 and x.gpa <= 50 and x.last_name == "Fenske").__code__)
+        self.assertEqual(
+            "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=BoolOp(op=And(), values=[BoolOp(op=And(), values=[Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='gpa', ctx=Load()), ops=[GtE()], comparators=[Num(n=10)]), Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='gpa', ctx=Load()), ops=[LtE()], comparators=[Num(n=50)])]), Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='last_name', ctx=Load()), ops=[Eq()], comparators=[Str(s='Fenske')])])))",
+            ast.dump(tree)
+        )
+
     def test_or_lambda(self):
         decompiler = LambdaDecompiler()
         tree = decompiler.decompile((lambda x: x.name == "Western Hockey League" or x.short_name == "WHL").__code__)

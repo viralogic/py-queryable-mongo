@@ -15,7 +15,6 @@ class InstructionVisitor(object):
         if stack is not None:
             self.stack = stack
         else:
-            branch_pts = ['JUMP_IF_FALSE_OR_POP', 'JUMP_IF_TRUE_OR_POP']
             if_pts = ['POP_JUMP_IF_FALSE']
             self.stack = Stack()
             instructions = list(instructions)
@@ -26,14 +25,6 @@ class InstructionVisitor(object):
                     raise TypeError("instruction is not an instance of dis.Instruction")
                 if i.opname == "RETURN_VALUE":
                     idx += 1
-                    continue
-                if i.opname in branch_pts:
-                    visitor = InstructionVisitor(stack=self.stack.copy())
-                    self.stack = Queue()
-                    self.stack.push(i)
-                    self.stack.push(visitor)
-                    instructions = list(reversed(instructions[idx + 1:]))
-                    idx = 0
                     continue
                 if i.opname in if_pts:
                     visitor = InstructionVisitor(stack=self.stack.copy())
@@ -78,15 +69,36 @@ class InstructionVisitor(object):
         }
         right = self.stack.pop()
         left = self.stack.pop()
-        return ast.Compare(
+        compare = ast.Compare(
             left=self.visit(left),
             ops=[op_map[i.argval]()],
             comparators=[self.visit(right)],
             lineno=i.starts_line,
             col_offset=i.offset
         )
+        next_instruction = self.stack.top()
+        if next_instruction is None:
+            return compare
+        if next_instruction.opname == "JUMP_IF_FALSE_OR_POP":
+            self.stack.pop()
+            return ast.BoolOp(
+                op=ast.And(),
+                values=[self.visit(self.stack.pop()), compare]
+            )
+        elif next_instruction.opname == "JUMP_IF_TRUE_OR_POP":
+            self.stack.pop()
+            return ast.BoolOp(
+                op=ast.Or(),
+                values=[self.visit(self.stack.pop()), compare]
+            )
+        else:
+            return compare
 
-    def __determine_const(self, i):
+    def visit_LOAD_CONST(self, i):
+        """
+        Performs visit operation on LOAD_CONST instruction
+        :param i: an Instruction instance
+        """
         if isinstance(i.argval, str):
             return ast.Str(s=i.argval, lineno=i.starts_line, col_offset=i.offset, is_jump_target=False)
         if isinstance(i.argval, (int, float, complex)):
@@ -94,7 +106,7 @@ class InstructionVisitor(object):
         if isinstance(i.argval, tuple):
             args = []
             for item in i.argval:
-                args.append(self.__determine_const(dis.Instruction(
+                args.append(self.visit_LOAD_CONST(dis.Instruction(
                     opname=i.opname,
                     opcode=i.opcode,
                     arg=i.arg,
@@ -111,13 +123,6 @@ class InstructionVisitor(object):
         if i.argval is None:
             return ast.Name(id='None', ctx=ast.Load(), lineno=i.starts_line, col_offset=i.offset, is_jump_target=False)
         return i.argval
-
-    def visit_LOAD_CONST(self, i):
-        """
-        Performs visit operation on LOAD_CONST instruction
-        :param i: an Instruction instance
-        """
-        return self.__determine_const(i)
 
     def visit_LOAD_FAST(self, i):
         """
@@ -143,22 +148,6 @@ class InstructionVisitor(object):
             ctx=ast.Load(),
             lineno=i.starts_line,
             col_offset=i.offset
-        )
-
-    def visit_JUMP_IF_FALSE_OR_POP(self, i):
-        left_ast = self.stack.pop().visit()
-        right_instruction = self.stack.pop()
-        return ast.BoolOp(
-            op=ast.And(),
-            values=[left_ast, self.visit(right_instruction)]
-        )
-
-    def visit_JUMP_IF_TRUE_OR_POP(self, i):
-        left_ast = self.stack.pop().visit()
-        right_instruction = self.stack.pop()
-        return ast.BoolOp(
-            op=ast.Or(),
-            values=[left_ast, self.visit(right_instruction)]
         )
 
     def visit_POP_JUMP_IF_FALSE(self, i):
