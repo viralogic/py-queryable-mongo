@@ -74,7 +74,7 @@ class TestCollectionLambdaTranslator(TestCase):
         self.assertEqual(t.body.right.mongo, t.body.right.n)
 
     # def test_return(self):
-    #     t = SqlLambdaTranslatorTest.translate(lambda x: lambda x: (x.gpa > 10 and x.first_name == u'Bruce') or x.first_name == u'Dustin')
+    #     t = LambdaExpression.translate(lambda x: (x.gpa > 10 and x.first_name == u'Bruce') or x.first_name == u'Dustin')
     #     self.assertEquals(
     #         t.body.sql,
     #         u"(x.gpa > 10 AND x.first_name = 'Bruce') OR x.first_name = 'Dustin'"
@@ -124,29 +124,25 @@ class TestCollectionLambdaTranslator(TestCase):
         self.assertIsInstance(t.body.value, ast.BoolOp)
         self.assertEqual('{"$and": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}', t.body.mongo)
 
+    def test_boolop_or(self):
+        t = LambdaExpression.parse(lambda x: x.gpa >= 10 or x.gpa <= 50 or x.last_name == "Fenske")
+        self.assertIsInstance(t.body.value, ast.BoolOp)
+        self.assertEqual('{"$or": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}', t.body.value.mongo)
+
     def test_binop(self):
         t = LambdaExpression.parse(lambda x: x.gpa + 10)
         self.assertIsInstance(t.body.value, ast.BinOp)
         self.assertEqual('{"$add": ["$gpa", 10]}', t.body.mongo)
 
-    # def test_not(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_not)
-    #     self.assertIsInstance(t.body.op, ast.Not, u"Should be a Not instance")
-    #     self.assertEqual(
-    #         t.body.op.sql,
-    #         u"NOT",
-    #         u"Not() sql property should equal NOT"
-    #     )
+    def test_not(self):
+        t = LambdaExpression.parse(lambda x: not x.gpa == 10)
+        self.assertIsInstance(t.body.op, ast.Not)
+        self.assertEqual('{"gpa": {"$not": {"$eq": 10}}}', t.body.mongo)
 
-    # def test_not_equals(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_not_equals)
-    #     correct = u"<>"
-    #     self.assertIsInstance(t.body.ops[0], ast.NotEq, u"Should be a NotEq instance")
-    #     self.assertEqual(
-    #         t.body.ops[0].sql,
-    #         correct,
-    #         u"{0} sql property should equal {1}".format(t.body.ops[0].sql, correct)
-    #     )
+    def test_not_equals(self):
+        t = LambdaExpression.parse(lambda x: x.gpa != 10)
+        self.assertIsInstance(t.body.ops[0], ast.NotEq)
+        self.assertEqual('{"gpa": {"$ne": 10}}', t.body.mongo)
 
     # def test_unary(self):
     #     t = SqlLambdaTranslatorTest.translate(self.simple_not)

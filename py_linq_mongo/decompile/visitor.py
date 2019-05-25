@@ -15,7 +15,6 @@ class InstructionVisitor(object):
         if stack is not None:
             self.stack = stack
         else:
-            if_pts = ['POP_JUMP_IF_FALSE']
             self.stack = Stack()
             instructions = list(instructions)
             idx = 0
@@ -25,14 +24,6 @@ class InstructionVisitor(object):
                     raise TypeError("instruction is not an instance of dis.Instruction")
                 if i.opname == "RETURN_VALUE":
                     idx += 1
-                    continue
-                if i.opname in if_pts:
-                    visitor = InstructionVisitor(stack=self.stack.copy())
-                    self.stack = Queue()
-                    self.stack.push(i)
-                    self.stack.push(visitor)
-                    instructions = instructions[idx + 1:]
-                    idx = 0
                     continue
                 self.stack.push(i)
                 idx += 1
@@ -79,13 +70,13 @@ class InstructionVisitor(object):
         next_instruction = self.stack.top()
         if next_instruction is None:
             return compare
-        if next_instruction.opname == "JUMP_IF_FALSE_OR_POP":
+        if next_instruction.opname in ["JUMP_IF_FALSE_OR_POP", "POP_JUMP_IF_FALSE"]:
             self.stack.pop()
             return ast.BoolOp(
                 op=ast.And(),
                 values=[self.visit(self.stack.pop()), compare]
             )
-        elif next_instruction.opname == "JUMP_IF_TRUE_OR_POP":
+        elif next_instruction.opname in ["JUMP_IF_TRUE_OR_POP"]:
             self.stack.pop()
             return ast.BoolOp(
                 op=ast.Or(),
@@ -148,16 +139,6 @@ class InstructionVisitor(object):
             ctx=ast.Load(),
             lineno=i.starts_line,
             col_offset=i.offset
-        )
-
-    def visit_POP_JUMP_IF_FALSE(self, i):
-        left_ast = self.stack.pop().visit()
-        body_instruction = self.stack.pop()
-        right_instruction = self.stack.pop()
-        return ast.IfExp(
-            test=left_ast,
-            body=self.visit(body_instruction),
-            orelse=self.visit(right_instruction)
         )
 
     def visit_LOAD_GLOBAL(self, i):
@@ -247,4 +228,13 @@ class InstructionVisitor(object):
             left=left,
             op=ast.Mult(),
             right=right
+        )
+
+    def visit_UNARY_NOT(self, i):
+        expr = self.visit(self.stack.pop())
+        return ast.UnaryOp(
+            op=ast.Not(),
+            operand=expr,
+            lineno=i.starts_line,
+            col_offset=i.offset
         )

@@ -121,3 +121,11 @@ class CollectionLambdaTranslator(ast.NodeVisitor):
         right = "${0}".format(node.right.mongo) if isinstance(node.right, ast.Attribute) else node.right.mongo
         v[node.op.mongo] = [left, right]
         node.mongo = json.dumps(v)
+
+    def visit_UnaryOp(self, node):
+        self.generic_visit(node)
+        v = {}
+        v[node.operand.left.attr] = {}
+        v[node.operand.left.attr][node.op.mongo] = {}
+        v[node.operand.left.attr][node.op.mongo][node.operand.ops[0].mongo] = node.operand.comparators[0].mongo
+        node.mongo = json.dumps(v)

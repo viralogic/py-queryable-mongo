@@ -42,11 +42,19 @@ class TestDecompilers(TestCase):
             ast.dump(tree)
         )
 
-    def test_if_else_lambda(self):
+    def test_or_complex(self):
         decompiler = LambdaDecompiler()
-        tree = decompiler.decompile((lambda x: "WHL" if x.name == "Western Hockey League" else "NOT WHL").__code__)
+        tree = decompiler.decompile((lambda x: x.gpa >= 10 or x.gpa <= 50 or x.last_name == "Fenske").__code__)
         self.assertEqual(
-            "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=IfExp(test=Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='name', ctx=Load()), ops=[Eq()], comparators=[Str(s='Western Hockey League')]), body=Str(s='WHL'), orelse=Str(s='NOT WHL'))))",
+            "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=BoolOp(op=Or(), values=[BoolOp(op=Or(), values=[Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='gpa', ctx=Load()), ops=[GtE()], comparators=[Num(n=10)]), Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='gpa', ctx=Load()), ops=[LtE()], comparators=[Num(n=50)])]), Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='last_name', ctx=Load()), ops=[Eq()], comparators=[Str(s='Fenske')])])))",
+            ast.dump(tree)
+        )
+
+    def test_and_or_complex(self):
+        decompiler = LambdaDecompiler()
+        tree = decompiler.decompile((lambda x: x.gpa >= 10 and x.gpa <= 50 or x.last_name == "Fenske").__code__)
+        self.assertEqual(
+            "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=BoolOp(op=Or(), values=[BoolOp(op=And(), values=[Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='gpa', ctx=Load()), ops=[GtE()], comparators=[Num(n=10)]), Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='gpa', ctx=Load()), ops=[LtE()], comparators=[Num(n=50)])]), Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='last_name', ctx=Load()), ops=[Eq()], comparators=[Str(s='Fenske')])])))",
             ast.dump(tree)
         )
 
@@ -122,5 +130,13 @@ class TestDecompilers(TestCase):
         tree = decompiler.decompile((lambda x: x.points * x.assists).__code__)
         self.assertEqual(
             "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=BinOp(left=Attribute(value=Name(id='x', ctx=Load()), attr='points', ctx=Load()), op=Mult(), right=Attribute(value=Name(id='x', ctx=Load()), attr='assists', ctx=Load()))))",
+            ast.dump(tree)
+        )
+
+    def test_unary_not(self):
+        decompiler = LambdaDecompiler()
+        tree = decompiler.decompile((lambda x: not x.gpa == 10).__code__)
+        self.assertEqual(
+            "Lambda(args=arguments(args=[Name(id='x', ctx=Param())], vararg=None, kwarg=None, defaults=[]), body=Return(value=UnaryOp(op=Not(), operand=Compare(left=Attribute(value=Name(id='x', ctx=Load()), attr='gpa', ctx=Load()), ops=[Eq()], comparators=[Num(n=10)]))))",
             ast.dump(tree)
         )
