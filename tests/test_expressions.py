@@ -129,6 +129,16 @@ class TestCollectionLambdaTranslator(TestCase):
         self.assertIsInstance(t.body.value, ast.BoolOp)
         self.assertEqual('{"$or": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}', t.body.value.mongo)
 
+    def test_boolop_or_brackets(self):
+        t = LambdaExpression.parse(lambda x: (x.gpa >= 10 and x.gpa <= 50) or x.last_name == "Fenske")
+        self.assertIsInstance(t.body.value, ast.BoolOp)
+        self.assertEqual('{"$or": ["{\\"$and\\": [\\"{\\\\\\"gpa\\\\\\": {\\\\\\"$gte\\\\\\": 10}}\\", \\"{\\\\\\"gpa\\\\\\": {\\\\\\"$lte\\\\\\": 50}}\\"]}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}', t.body.value.mongo)
+
+    def test_boolop_and_brackets(self):
+        t = LambdaExpression.parse(lambda x: (x.gpa >= 10 or x.gpa <= 50) and x.last_name == "Fenske")
+        self.assertIsInstance(t.body.value, ast.BoolOp)
+        self.assertEqual('{"$and": ["{\\"$or\\": [\\"{\\\\\\"gpa\\\\\\": {\\\\\\"$gte\\\\\\": 10}}\\", \\"{\\\\\\"gpa\\\\\\": {\\\\\\"$lte\\\\\\": 50}}\\"]}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}', t.body.value.mongo)
+
     def test_binop(self):
         t = LambdaExpression.parse(lambda x: x.gpa + 10)
         self.assertIsInstance(t.body.value, ast.BinOp)

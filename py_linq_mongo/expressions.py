@@ -109,8 +109,10 @@ class CollectionLambdaTranslator(ast.NodeVisitor):
             if isinstance(predicate, ast.Name):
                 continue
             if isinstance(predicate, ast.BoolOp):
-                v[node.op.mongo].extend(list(map(lambda p: p.mongo, predicate.values)))
-                continue
+                self.generic_visit(predicate)
+                if node.op.mongo == predicate.op.mongo:
+                    v[node.op.mongo].extend(list(map(lambda p: p.mongo, predicate.values)))
+                    continue
             v[node.op.mongo].append(predicate.mongo)
         node.mongo = json.dumps(v)
 

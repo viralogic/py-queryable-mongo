@@ -76,7 +76,7 @@ class InstructionVisitor(object):
                 op=ast.And(),
                 values=[self.visit(self.stack.pop()), compare]
             )
-        elif next_instruction.opname in ["JUMP_IF_TRUE_OR_POP"]:
+        elif next_instruction.opname in ["JUMP_IF_TRUE_OR_POP", "POP_JUMP_IF_TRUE"]:
             self.stack.pop()
             return ast.BoolOp(
                 op=ast.Or(),
