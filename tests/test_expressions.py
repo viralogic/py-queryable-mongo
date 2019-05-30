@@ -73,12 +73,12 @@ class TestCollectionLambdaTranslator(TestCase):
         self.assertIsInstance(t.body.right, ast.Num, "Should be a Num instance")
         self.assertEqual(t.body.right.mongo, t.body.right.n)
 
-    # def test_return(self):
-    #     t = LambdaExpression.translate(lambda x: (x.gpa > 10 and x.first_name == u'Bruce') or x.first_name == u'Dustin')
-    #     self.assertEquals(
-    #         t.body.sql,
-    #         u"(x.gpa > 10 AND x.first_name = 'Bruce') OR x.first_name = 'Dustin'"
-    #     )
+    def test_return(self):
+        t = LambdaExpression.parse(lambda x: (x.gpa > 10 and x.first_name == u'Bruce') or x.first_name == u'Dustin')
+        self.assertEquals(
+            '{"$or": ["{\\"$and\\": [\\"{\\\\\\"gpa\\\\\\": {\\\\\\"$gt\\\\\\": 10}}\\", \\"{\\\\\\"first_name\\\\\\": {\\\\\\"$eq\\\\\\": \\\\\\"Bruce\\\\\\"}}\\"]}", "{\\"first_name\\": {\\"$eq\\": \\"Dustin\\"}}"]}',
+            t.body.mongo
+        )
 
     def test_num_compare(self):
         t = LambdaExpression.parse(lambda x: x.gpa >= 10)
@@ -154,52 +154,30 @@ class TestCollectionLambdaTranslator(TestCase):
         self.assertIsInstance(t.body.ops[0], ast.NotEq)
         self.assertEqual('{"gpa": {"$ne": 10}}', t.body.mongo)
 
-    # def test_unary(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_not)
-    #     correct = u"NOT x.gpa = 10"
-    #     self.assertEqual(
-    #         t.body.sql,
-    #         correct,
-    #         u"{0} sql property should equal {1}".format(t.body.sql, correct)
-    #     )
+    def test_unary(self):
+        t = LambdaExpression.parse(lambda x: not x.gpa == 10)
+        self.assertEqual('{"gpa": {"$not": {"$eq": 10}}}', t.body.mongo)
 
-    # def test_Lambda(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_and)
-    #     correct = u"x.gpa >= 10 AND x.gpa <= 50"
-    #     self.assertEqual(t.body.sql, correct,
-    #                      u"{0} should equal {1}".format(t.body.sql, correct))
+    def test_lambda(self):
+        t = LambdaExpression.parse(lambda x: x.gpa >= 10 and x.gpa <= 50)
+        self.assertEqual('{"$and": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}"]}', t.body.mongo)
 
-    # def test_simple_select(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_select)
-    #     self.assertEqual(t.body.sql, u"x.first_name", u"Should equal 'x.first_name")
+    def test_simple_select(self):
+        t = LambdaExpression.parse(lambda x: x.first_name)
+        self.assertEqual("first_name", t.body.mongo)
 
-    # def test_order_by(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.simple_order_by)
-    #     self.assertEqual(t.body.sql, u"x.first_name", u"Should equal 'x.first_name'")
+    def test_list_select(self):
+        t = LambdaExpression.parse(lambda x: [x.first_name, x.last_name, x.gpa])
+        self.assertEqual('{"first_name": 1, "last_name": 1, "gpa": 1}', t.body.mongo)
 
-    # def test_list_select(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.list_select)
-    #     correct = u"x.first_name, x.last_name, x.gpa"
-    #     self.assertEqual(
-    #         t.body.sql,
-    #         correct,
-    #         u"{0} should equal {1}".format(t.body.sql, correct)
-    #     )
+    def test_tuple_select(self):
+        t = LambdaExpression.parse(lambda x: (x.first_name, x.last_name, x.gpa))
+        self.assertEqual('{"first_name": 1, "last_name": 1, "gpa": 1}', t.body.mongo)
 
-    # def test_tuple_select(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.tuple_select)
-    #     correct = u"x.first_name, x.last_name, x.gpa"
-    #     self.assertEqual(
-    #         t.body.sql,
-    #         correct,
-    #         u"{0} should equal {1}".format(t.body.sql, correct)
-    #     )
-
-    # def test_dict_select(self):
-    #     t = SqlLambdaTranslatorTest.translate(self.dict_select)
-    #     correct = u"x.first_name AS 'FirstName', x.last_name AS 'LastName', x.gpa AS 'GPA'"
-    #     self.assertEqual(
-    #         t.body.sql,
-    #         correct,
-    #         u"{0} should equal {1}".format(t.body.sql, correct)
-    #     )
+    def test_dict_select(self):
+        t = LambdaExpression.parse(lambda x: {
+            'FirstName': x.first_name,
+            'LastName': x.last_name,
+            'GPA': x.gpa}
+        )
+        self.assertEqual('{"$project": {"FirstName": "$first_name", "LastName": "$last_name", "GPA": "$gpa"}}', t.body.mongo)

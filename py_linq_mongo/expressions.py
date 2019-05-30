@@ -131,3 +131,23 @@ class CollectionLambdaTranslator(ast.NodeVisitor):
         v[node.operand.left.attr][node.op.mongo] = {}
         v[node.operand.left.attr][node.op.mongo][node.operand.ops[0].mongo] = node.operand.comparators[0].mongo
         node.mongo = json.dumps(v)
+
+    def visit_List(self, node):
+        v = {}
+        for e in node.elts:
+            v[e.attr] = 1
+        node.mongo = json.dumps(v)
+
+    def visit_Tuple(self, node):
+        self.visit_List(node)
+
+    def visit_Dict(self, node):
+        v = {
+            "$project": {
+            }
+        }
+        for i in range(len(node.keys)):
+            key = node.keys[i].s
+            value = "${0}".format(node.values[i].attr)
+            v["$project"][key] = value
+        node.mongo = json.dumps(v)
