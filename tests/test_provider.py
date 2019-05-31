@@ -1,6 +1,6 @@
 from unittest import TestCase
 from pymongo import MongoClient
-from py_linq_mongo.queryable import Queryable
+from py_linq_mongo.query import Queryable
 from py_linq_mongo.provider import MongoProvider
 from . import LeagueModel, EmptyCollectionNameModel, InvalidAttributeModel
 

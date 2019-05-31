@@ -75,7 +75,7 @@ class TestCollectionLambdaTranslator(TestCase):
 
     def test_return(self):
         t = LambdaExpression.parse(lambda x: (x.gpa > 10 and x.first_name == u'Bruce') or x.first_name == u'Dustin')
-        self.assertEquals(
+        self.assertEqual(
             '{"$or": ["{\\"$and\\": [\\"{\\\\\\"gpa\\\\\\": {\\\\\\"$gt\\\\\\": 10}}\\", \\"{\\\\\\"first_name\\\\\\": {\\\\\\"$eq\\\\\\": \\\\\\"Bruce\\\\\\"}}\\"]}", "{\\"first_name\\": {\\"$eq\\": \\"Dustin\\"}}"]}',
             t.body.mongo
         )
@@ -168,11 +168,11 @@ class TestCollectionLambdaTranslator(TestCase):
 
     def test_list_select(self):
         t = LambdaExpression.parse(lambda x: [x.first_name, x.last_name, x.gpa])
-        self.assertEqual('{"first_name": 1, "last_name": 1, "gpa": 1}', t.body.mongo)
+        self.assertEqual('{"$project": {"first_name": "$first_name", "last_name": "$last_name", "gpa": "$gpa"}}', t.body.mongo)
 
     def test_tuple_select(self):
         t = LambdaExpression.parse(lambda x: (x.first_name, x.last_name, x.gpa))
-        self.assertEqual('{"first_name": 1, "last_name": 1, "gpa": 1}', t.body.mongo)
+        self.assertEqual('{"$project": {"first_name": "$first_name", "last_name": "$last_name", "gpa": "$gpa"}}', t.body.mongo)
 
     def test_dict_select(self):
         t = LambdaExpression.parse(lambda x: {

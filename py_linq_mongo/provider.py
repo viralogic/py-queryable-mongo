@@ -1,5 +1,5 @@
 import pymongo
-from .queryable import Queryable
+from .query import Queryable
 
 
 class MongoProvider(object):

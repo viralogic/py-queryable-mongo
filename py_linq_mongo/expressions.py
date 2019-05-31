@@ -133,9 +133,11 @@ class CollectionLambdaTranslator(ast.NodeVisitor):
         node.mongo = json.dumps(v)
 
     def visit_List(self, node):
-        v = {}
+        v = {
+            "$project": {}
+        }
         for e in node.elts:
-            v[e.attr] = 1
+            v["$project"][e.attr] = "${0}".format(e.attr)
         node.mongo = json.dumps(v)
 
     def visit_Tuple(self, node):
@@ -143,8 +145,7 @@ class CollectionLambdaTranslator(ast.NodeVisitor):
 
     def visit_Dict(self, node):
         v = {
-            "$project": {
-            }
+            "$project": {}
         }
         for i in range(len(node.keys)):
             key = node.keys[i].s
