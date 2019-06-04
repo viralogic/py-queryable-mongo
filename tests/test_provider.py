@@ -22,6 +22,10 @@ class MongoProviderTests(TestCase):
         self.assertEqual(MongoClient, type(self.provider.connection))
         self.assertIsNotNone(self.provider.database)
 
+    def test_constructor_exception(self):
+        self.assertRaises(AttributeError, self.provider.query, InvalidAttributeModel)
+        self.assertRaises(AttributeError, self.provider.query, EmptyCollectionNameModel)
+
     def test_query(self):
         query = self.provider.query(LeagueModel)
         self.assertIsInstance(query, Queryable)

@@ -4,25 +4,22 @@ import ast
 import collections
 from ..expressions import LambdaExpression
 import abc
+import py_linq
 
 
 class Queryable(object):
     """
     Class that encapsulates different methods to query a MongoDb collection
     """
-    def __init__(self, database, model):
+    def __init__(self, collection, model):
         """
         Queryable constructor
         :param database: the connection to a MongoDb database
-        :param model: type the collection type
+        :param model: instance of the model for the Mongo Collection
         """
-        self.database = database
         self.model = model
-        if not hasattr(model, "__collection_name__"):
-            raise AttributeError("Attribute __collection_name__ not found")
-        if getattr(model, "__collection_name__") is None or len(getattr(model, "__collection_name__")) == 0:
-            raise AttributeError("Attribute __collection_name__ needs to be set")
-        self.expression = self.database[self.model.__collection_name__]
+        self.collection = collection
+        self.pipeline = []
 
     def __iter__(self):
         """
@@ -30,17 +27,22 @@ class Queryable(object):
         If so, yield a new instance of the model with results from the query.
         Otherwise, just returns none
         """
-        if isinstance(self.expression, collections.abc.Iterable):
-            for item in self.expression:
-                yield type(self.model.__class__.__name__, (object,), self.model, item)
-        return NotImplementedError()
+        try:
+            for item in self.collection:
+                yield type(self.model.__class__.__name__, (object,), item)
+        except:
+            for item in self.collection.find({}):
+                yield type(self.model.__class__.__name__, (object,), item)
 
     def count(self):
         """
         Returns the number of documents in the collection
         :return: integer object
         """
-        return self.expression.count_documents({})
+        self.pipeline.append({"$count": "total"})
+        query = self.collection.aggregate(self.pipeline)
+        for i in query:
+            return i["total"]
 
     def select(self, func, include_id=False):
         """
@@ -50,16 +52,16 @@ class Queryable(object):
         """
         t = LambdaExpression.parse(func)
         if isinstance(t.body.value, ast.Name):
-            return SimpleSelectQueryable(self.expression, t.body, include_id)
+            return SimpleSelectQueryable(self.collection, self.pipeline, t.body, include_id)
         if isinstance(t.body.value, ast.Tuple) or isinstance(t.body.value, ast.List):
-            return CollectionSelectQueryable(self.expression, t.body, include_id)
+            return CollectionSelectQueryable(self.collection, self.pipeline, t.body, include_id)
         if isinstance(t.body.value, ast.Dict):
-            return DictSelectQueryable(self.expression, t.body, include_id)
+            return DictSelectQueryable(self.collection, self.pipeline, t.body, include_id)
         else:
             raise TypeError("Cannot project {0} node".format(t.body.value.__class__.__name__))
 
-    # def take(self, limit):
-    #     return Queryable(operators.TakeOperator(self.expression, limit), self.provider)
+    def take(self, limit):
+        return self.pipeline.append({"$limit": limit})
 
     # def skip(self, offset):
     #     return Queryable(operators.SkipOperator(self.expression, offset), self.provider)
@@ -122,21 +124,22 @@ class Queryable(object):
     #     except NoMatchingElement:
     #         return None
 
-    # def as_enumerable(self):
-    #     return Enumerable(self)
+    def as_enumerable(self):
+        return py_linq.Enumerable(self)
 
-    # def to_list(self):
-    #     return self.as_enumerable().to_list()
+    def to_list(self):
+        return self.as_enumerable().to_list()
 
 
 class SelectQueryable(abc.ABC, Queryable):
     """
     Abstract class for select queryable
     """
-    def __init__(self, expression, node, include_id):
+    def __init__(self, collection, pipeline, node, include_id):
         self.include_id = include_id
         self.node = node
-        self.expression = expression.aggregate([self.projection])
+        self.pipeline = py_linq.Enumerable(pipeline).add(self.projection).to_list()
+        self.collection = collection
 
     @abc.abstractproperty
     def projection(self):
@@ -147,8 +150,8 @@ class SimpleSelectQueryable(SelectQueryable):
     """
     Performs a projection of a collection when ast.Name is encountered
     """
-    def __init__(self, expression, node, include_id=False):
-        super(SimpleSelectQueryable, self).__init__(expression, node, include_id)
+    def __init__(self, collection, pipeline, node, include_id=False):
+        super(SimpleSelectQueryable, self).__init__(collection, pipeline, node, include_id)
 
     @property
     def projection(self):
@@ -161,7 +164,7 @@ class SimpleSelectQueryable(SelectQueryable):
         return project
 
     def __iter__(self):
-        for e in self.expression:
+        for e in self.collection.aggregate(self.pipeline):
             yield tuple([v for k, v in e.items()])
 
 
@@ -169,8 +172,8 @@ class DictSelectQueryable(SelectQueryable):
     """
     Performs a projection of a collection
     """
-    def __init__(self, expression, node, include_id=False):
-        super(DictSelectQueryable, self).__init__(expression, node, include_id)
+    def __init__(self, collection, pipeline, node, include_id=False):
+        super(DictSelectQueryable, self).__init__(collection, pipeline, node, include_id)
 
     @property
     def projection(self):
@@ -179,16 +182,16 @@ class DictSelectQueryable(SelectQueryable):
         return project
 
     def __iter__(self):
-        return self.expression.__iter__()
+        return self.collection.aggregate(self.pipeline).__iter__()
 
 
 class CollectionSelectQueryable(DictSelectQueryable):
     """
     Performs a projection of a collection when ast.Tuple or ast.List is encountered
     """
-    def __init__(self, expression, node, include_id=False):
-        super(CollectionSelectQueryable, self).__init__(expression, node, include_id)
+    def __init__(self, collection, pipeline, node, include_id=False):
+        super(CollectionSelectQueryable, self).__init__(collection, pipeline, node, include_id)
 
     def __iter__(self):
-        for e in self.expression:
+        for e in self.collection.aggregate(self.pipeline):
             yield tuple([v for k, v in e.items()])

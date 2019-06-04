@@ -12,6 +12,7 @@ pytest-cov = "*"
 
 [packages]
 pymongo = "*"
+py-linq = "*"
 
 [requires]
 python_version = "3.7"

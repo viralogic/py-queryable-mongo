@@ -42,4 +42,4 @@ class MongoProvider(object):
             raise AttributeError("__collection_name__ attribute not found in collection model")
         if collection_type.__collection_name__ is None or len(collection_type.__collection_name__) == 0:
             raise AttributeError("__collection_name__ must be set")
-        return Queryable(self.database, collection_type)
+        return Queryable(self.database[collection_type.__collection_name__], collection_type)
