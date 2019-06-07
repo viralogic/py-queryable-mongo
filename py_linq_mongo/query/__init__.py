@@ -61,14 +61,21 @@ class Queryable(object):
             raise TypeError("Cannot project {0} node".format(t.body.value.__class__.__name__))
 
     def take(self, limit):
-        return self.pipeline.append({"$limit": limit})
+        self.pipeline.append({"$limit": limit})
+        return self
 
-    # def skip(self, offset):
-    #     return Queryable(operators.SkipOperator(self.expression, offset), self.provider)
+    def skip(self, offset):
+        self.pipeline.append({"$skip": offset})
+        return self
 
-    # def max(self, func=None):
-    #     query = Queryable(operators.MaxOperator(self.expression, func), self.provider)
-    #     return self.provider.db_provider.execute_scalar(query.sql)
+    def max(self, func=None):
+        if func is None and not isinstance(self, SelectQueryable):
+            raise TypeError("Needs to follow a select")
+        t = LambdaExpression.parse(func)
+        if not isinstance(t.body.value, ast.Name):
+            raise TypeError("Lambda function must decompile to ast.Name instance")
+        self.pipeline.append({"$max": "${0}".format(t.body.value.mongo)})
+        return self
 
     # def min(self, func=None):
     #     query = Queryable(operators.MinOperator(self.expression, func), self.provider)

@@ -68,11 +68,24 @@ class QueryableTests(TestCase):
         query = Queryable(self.collection, LeagueModel).select(lambda x: x.name).count()
         self.assertEqual(1, query)
 
-    def test_to_list_exception(self):
-        query = Queryable(self.collection, LeagueModel)
-        self.assertRaises(TypeError, query.to_list)
-
     def test_to_list(self):
         query = Queryable(self.collection, LeagueModel).to_list()
         self.assertEqual("Western Hockey League", query[0].name)
         self.assertEqual(1, len(query[0].seasons))
+
+    def test_take(self):
+        query = Queryable(self.collection, LeagueModel).take(1)
+        self.assertEqual(1, query.count())
+        self.assertEqual("Western Hockey League", query.to_list()[0].name)
+
+    def test_skip(self):
+        query = Queryable(self.collection, LeagueModel).skip(1)
+        self.assertIsNone(query.count())
+
+    def test_skip_take(self):
+        query = Queryable(self.collection, LeagueModel).skip(1).take(1)
+        self.assertIsNone(query.count())
+
+    def test_take_skip(self):
+        query = Queryable(self.collection, LeagueModel).take(1).skip(1)
+        self.assertIsNone(query.count())
