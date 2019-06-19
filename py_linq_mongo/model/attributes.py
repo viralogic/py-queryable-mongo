@@ -1,4 +1,5 @@
 import pymongo
+from datetime import datetime
 
 
 class ModelAttribute(object):
@@ -39,3 +40,12 @@ class Integer(ModelAttribute):
         :param name: The name of the integer attribute in the MongoDB document
         """
         super(Integer, self).__init__(int, name)
+
+
+class DateTime(ModelAttribute):
+    def __init__(self, name):
+        """
+        Attribute used to model a date attribute type of a document
+        :param name -> The name of the date attribute in the MongoDB document
+        """
+        super(DateTime, self).__init__(datetime, name)

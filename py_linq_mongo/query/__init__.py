@@ -27,12 +27,8 @@ class Queryable(object):
         If so, yield a new instance of the model with results from the query.
         Otherwise, just returns none
         """
-        try:
-            for item in self.collection:
-                yield type(self.model.__class__.__name__, (object,), item)
-        except:
-            for item in self.collection.find({}):
-                yield type(self.model.__class__.__name__, (object,), item)
+        for item in self.collection.aggregate(self.pipeline):
+            yield type(self.model.__class__.__name__, (object,), item)
 
     def count(self):
         """
@@ -41,8 +37,7 @@ class Queryable(object):
         """
         self.pipeline.append({"$count": "total"})
         query = self.collection.aggregate(self.pipeline)
-        for i in query:
-            return i["total"]
+        return py_linq.Enumerable(query).to_list()[0]["total"]
 
     def select(self, func, include_id=False):
         """
@@ -69,13 +64,7 @@ class Queryable(object):
         return self
 
     def max(self, func=None):
-        if func is None and not isinstance(self, SelectQueryable):
-            raise TypeError("Needs to follow a select")
-        t = LambdaExpression.parse(func)
-        if not isinstance(t.body.value, ast.Name):
-            raise TypeError("Lambda function must decompile to ast.Name instance")
-        self.pipeline.append({"$max": "${0}".format(t.body.value.mongo)})
-        return self
+        raise NotImplementedError()
 
     # def min(self, func=None):
     #     query = Queryable(operators.MinOperator(self.expression, func), self.provider)
@@ -107,11 +96,13 @@ class Queryable(object):
     #     except NoElementsError:
     #         return None
 
-    # def order_by(self, func):
-    #     return OrderedQueryable(operators.OrderByOperator(self.expression, func), self.provider)
+    def order_by(self, func):
+        t = LambdaExpression.parse(func)
+        return OrderedQueryable(self.collection, self.model, self.pipeline, t.body, 1)
 
-    # def order_by_descending(self, func):
-    #     return OrderedQueryable(operators.OrderByDescendingOperator(self.expression, func), self.provider)
+    def order_by_descending(self, func):
+        t = LambdaExpression.parse(func)
+        return OrderedQueryable(self.collection, self.model, self.pipeline, t.body, -1)
 
     # def where(self, func):
     #     return Queryable(operators.WhereOperator(self.expression, func), self.provider)
@@ -202,3 +193,35 @@ class CollectionSelectQueryable(DictSelectQueryable):
     def __iter__(self):
         for e in self.collection.aggregate(self.pipeline):
             yield tuple([v for k, v in e.items()])
+
+
+class OrderedQueryable(Queryable):
+    """
+    Sorts a collection
+    """
+    def __init__(self, collection, model, pipeline, node, direction=1):
+        super(OrderedQueryable, self).__init__(collection, model)
+        self.pipeline = pipeline
+        self.node = node
+        self.sort_dict = {"$sort": {}}
+        self.sort_dict["$sort"][self.node.mongo] = direction
+
+    def __iter__(self):
+        self.pipeline.append(self.sort_dict)
+        for item in self.collection.aggregate(self.pipeline):
+            i = type(self.model.__class__.__name__, (object,), item)
+            yield i
+
+    def _addSortKey(self, func, direction):
+        t = LambdaExpression.parse(func)
+        if not isinstance(t.body.value, ast.Name):
+            raise TypeError("Lambda function needs to select a field")
+        self.sort_dict["$sort"][n.body.mongo] = direction
+
+    def then_by(self, func):
+        self._addSortKey(func, 1)
+        return self
+
+    def then_by_descending(self, func):
+        self._addSortKey(func, -1)
+        return self

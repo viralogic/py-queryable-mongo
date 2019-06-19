@@ -1,7 +1,8 @@
 from unittest import TestCase
 import pymongo
 from py_linq_mongo.query import Queryable
-from . import LeagueModel, InvalidAttributeModel, EmptyCollectionNameModel
+import datetime
+from . import SaleModel, LeagueModel, InvalidAttributeModel, EmptyCollectionNameModel
 
 
 class QueryableTests(TestCase):
@@ -19,6 +20,7 @@ class QueryableTests(TestCase):
             authSource="whl-data"
         )
         self.collection = self.client["whl-data"][LeagueModel.__collection_name__]
+        self.sales_collection = self.client["whl-data"][SaleModel.__collection_name__]
 
     def test_constructor(self):
         query = Queryable(self.collection, LeagueModel)
@@ -75,17 +77,33 @@ class QueryableTests(TestCase):
 
     def test_take(self):
         query = Queryable(self.collection, LeagueModel).take(1)
-        self.assertEqual(1, query.count())
+        self.assertEqual(1, len(query.to_list()))
         self.assertEqual("Western Hockey League", query.to_list()[0].name)
+
+        query = Queryable(self.sales_collection, SaleModel).take(1)
+        self.assertEqual(1, len(query.to_list()))
+        self.assertEqual(10, query.to_list()[0].price)
 
     def test_skip(self):
         query = Queryable(self.collection, LeagueModel).skip(1)
-        self.assertIsNone(query.count())
+        self.assertEqual(0, len(query.to_list()))
 
     def test_skip_take(self):
         query = Queryable(self.collection, LeagueModel).skip(1).take(1)
-        self.assertIsNone(query.count())
+        self.assertEqual(0, len(query.to_list()))
 
     def test_take_skip(self):
         query = Queryable(self.collection, LeagueModel).take(1).skip(1)
-        self.assertIsNone(query.count())
+        self.assertEqual(0, len(query.to_list()))
+
+    def test_order_by(self):
+        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.price).to_list()[0]
+        self.assertEqual(5, query.price)
+
+    def test_order_by_descending(self):
+        query = Queryable(self.sales_collection, SaleModel).order_by_descending(lambda s: s.price).to_list()[0]
+        self.assertEqual(20, query.price)
+
+    # def test_max(self):
+    #     query = Queryable(self.sales_collection, SaleModel).max(lambda x: x.price).to_list()
+    #     self.assertEqual(20, query)
