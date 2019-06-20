@@ -5,6 +5,7 @@ import collections
 from ..expressions import LambdaExpression
 import abc
 import py_linq
+from py_linq import exceptions
 
 
 class Queryable(object):
@@ -42,8 +43,10 @@ class Queryable(object):
     def select(self, func, include_id=False):
         """
         Projects each element of a document into a new form given by func
-        :func: A projection function to apply to each element.
-        :return: Queryable object
+
+        func -> A projection function to apply to each element.
+
+        return -> Queryable object
         """
         t = LambdaExpression.parse(func)
         if isinstance(t.body.value, ast.Name):
@@ -63,8 +66,18 @@ class Queryable(object):
         self.pipeline.append({"$skip": offset})
         return self
 
+    def where(self, func):
+        t = LambdaExpression.parse(func)
+        return WhereQueryable(self.collection, self.model, self.pipeline, t.body)
+
     def max(self, func=None):
-        raise NotImplementedError()
+        if func is None:
+            return self.as_enumerable().max()
+        t = LambdaExpression.parse(func)
+        if not isinstance(t.body.value, ast.Name):
+            raise TypeError("Must select a property of {0}".format(self.model.__class__.__name__))
+        v = self.order_by_descending(func).first_or_default()
+        return None if v is None else func(v)
 
     # def min(self, func=None):
     #     query = Queryable(operators.MinOperator(self.expression, func), self.provider)
@@ -87,14 +100,16 @@ class Queryable(object):
     #     count = self.count()
     #     return self.where(func).count() == count
 
-    # def first(self):
-    #     return self.take(1).as_enumerable().first()
+    def first(self, func=None):
+        if func is not None:
+            return self.where(func).take(1).as_enumerable().first()
+        return self.take(1).as_enumerable().first()
 
-    # def first_or_default(self):
-    #     try:
-    #         return self.first()
-    #     except NoElementsError:
-    #         return None
+    def first_or_default(self, func=None):
+        try:
+            return self.first(func)
+        except exceptions.NoElementsError:
+            return None
 
     def order_by(self, func):
         t = LambdaExpression.parse(func)
@@ -216,7 +231,7 @@ class OrderedQueryable(Queryable):
         t = LambdaExpression.parse(func)
         if not isinstance(t.body.value, ast.Name):
             raise TypeError("Lambda function needs to select a field")
-        self.sort_dict["$sort"][n.body.mongo] = direction
+        self.sort_dict["$sort"][t.body.mongo] = direction
 
     def then_by(self, func):
         self._addSortKey(func, 1)
@@ -224,4 +239,32 @@ class OrderedQueryable(Queryable):
 
     def then_by_descending(self, func):
         self._addSortKey(func, -1)
+        return self
+
+
+class WhereQueryable(Queryable):
+    """
+    Filters a collection
+    """
+    def __init__(self, collection, model, pipeline, node):
+        super(WhereQueryable, self).__init__(collection, model)
+        self.pipeline = pipeline
+        self.node = node
+        self.filter_dict = {}
+        self.filter_dict["$match"] = json.loads(self.node.mongo)
+
+    def __iter__(self):
+        self.pipeline.append(self.filter_dict)
+        for item in self.collection.aggregate(self.pipeline):
+            i = type(self.model.__class__.__name__, (object,), item)
+            yield i
+
+    def where(self, func):
+        t = LambdaExpression.parse(func)
+        j = json.loads(t.body.mongo)
+        if "$and" in self.filter_dict["$match"]:
+            self.filter_dict["$match"]["$and"].append(j)
+        else:
+            q = {"$and": [self.filter_dict["$match"], j]}
+            self.filter_dict["$match"] = q
         return self

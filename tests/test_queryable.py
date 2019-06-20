@@ -3,6 +3,7 @@ import pymongo
 from py_linq_mongo.query import Queryable
 import datetime
 from . import SaleModel, LeagueModel, InvalidAttributeModel, EmptyCollectionNameModel
+from py_linq import exceptions
 
 
 class QueryableTests(TestCase):
@@ -104,6 +105,51 @@ class QueryableTests(TestCase):
         query = Queryable(self.sales_collection, SaleModel).order_by_descending(lambda s: s.price).to_list()[0]
         self.assertEqual(20, query.price)
 
-    # def test_max(self):
-    #     query = Queryable(self.sales_collection, SaleModel).max(lambda x: x.price).to_list()
-    #     self.assertEqual(20, query)
+    def test_order_by_then_by(self):
+        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.price).then_by(lambda s: s.date).to_list()[0]
+        self.assertEqual(5, query.price)
+        self.assertEqual(datetime.datetime(2014, 2, 3, 9, 5), query.date)
+
+    def test_order_by_then_by_descending(self):
+        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.price).then_by_descending(lambda s: s.date).to_list()[0]
+        self.assertEqual(5, query.price)
+        self.assertEqual(datetime.datetime(2014, 2, 15, 9, 5), query.date)
+
+    def test_order_by_descending_then_by(self):
+        query = Queryable(self.sales_collection, SaleModel).order_by_descending(lambda s: s.price).then_by(lambda s: s.quantity).to_list()[0]
+        self.assertEqual(20, query.price)
+        self.assertEqual(1, query.quantity)
+
+    def test_order_by_descending_then_by_descending(self):
+        query = Queryable(self.sales_collection, SaleModel).order_by_descending(lambda s: s.price).then_by_descending(lambda s: s.quantity).to_list()[0]
+        self.assertEqual(20, query.price)
+        self.assertEqual(1, query.quantity)
+
+    def test_where(self):
+        query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 5).to_list()
+        self.assertEqual(3, len(query))
+
+    def test_combining_wheres(self):
+        query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 5).where(lambda s: s.item == "abc").to_list()
+        self.assertEqual(2, len(query))
+
+    def test_first(self):
+        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.date).first()
+        self.assertEqual(datetime.datetime(2014, 1, 1, 8, 0), query.date)
+
+    def test_no_first(self):
+        query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 20)
+        self.assertRaises(exceptions.NoElementsError, query.first, None)
+
+    def test_first_or_default(self):
+        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.date).first_or_default()
+        self.assertIsNotNone(query)
+        self.assertEqual(datetime.datetime(2014, 1, 1, 8, 0), query.date)
+
+    def test_no_first_or_default(self):
+        query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 20).first_or_default()
+        self.assertIsNone(query)
+
+    def test_max(self):
+        query = Queryable(self.sales_collection, SaleModel).max(lambda x: x.price)
+        self.assertEqual(20, query)
