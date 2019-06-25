@@ -70,14 +70,14 @@ class Queryable(object):
         t = LambdaExpression.parse(func)
         return WhereQueryable(self.collection, self.model, self.pipeline, t.body)
 
-    def max(self, func=None):
-        if func is None:
-            return self.as_enumerable().max()
-        t = LambdaExpression.parse(func)
-        if not isinstance(t.body.value, ast.Name):
-            raise TypeError("Must select a property of {0}".format(self.model.__class__.__name__))
-        v = self.order_by_descending(func).first_or_default()
-        return None if v is None else func(v)
+    # def max(self, func=None):
+    #     if func is None:
+    #         return self.as_enumerable().max()
+    #     t = LambdaExpression.parse(func)
+    #     if not isinstance(t.body.value, ast.Name):
+    #         raise TypeError("Must select a property of {0}".format(self.model.__class__.__name__))
+    #     v = self.order_by_descending(func).first_or_default()
+    #     return None if v is None else func(v)
 
     # def min(self, func=None):
     #     query = Queryable(operators.MinOperator(self.expression, func), self.provider)
@@ -119,23 +119,21 @@ class Queryable(object):
         t = LambdaExpression.parse(func)
         return OrderedQueryable(self.collection, self.model, self.pipeline, t.body, -1)
 
-    # def where(self, func):
-    #     return Queryable(operators.WhereOperator(self.expression, func), self.provider)
+    def single(self, func=None):
+        if func is None:
+            return self.take(1).to_list()[0]
+        result = self.where(func).take(2).to_list()
+        if len(result) == 0:
+            raise exceptions.NoMatchingElement(u"No matching elements could be found")
+        if len(result) > 1:
+            raise exceptions.MoreThanOneMatchingElement(u"More than one matching element found")
+        return result[0]
 
-    # def single(self, func=None):
-    #     result = self.where(func).to_list() if func is not None else self.to_list()
-    #     count = len(result)
-    #     if count == 0:
-    #         raise NoMatchingElement(u"No matching elements could be found")
-    #     if count > 1:
-    #         raise MoreThanOneMatchingElement(u"More than one matching element found")
-    #     return result[0]
-
-    # def single_or_default(self, func=None):
-    #     try:
-    #         return self.single(func)
-    #     except NoMatchingElement:
-    #         return None
+    def single_or_default(self, func=None):
+        try:
+            return self.single(func)
+        except exceptions.NoMatchingElement:
+            return None
 
     def as_enumerable(self):
         return py_linq.Enumerable(self)
@@ -252,14 +250,15 @@ class WhereQueryable(Queryable):
         self.node = node
         self.filter_dict = {}
         self.filter_dict["$match"] = json.loads(self.node.mongo)
+        self.pipeline.append(self.filter_dict)
 
     def __iter__(self):
-        self.pipeline.append(self.filter_dict)
         for item in self.collection.aggregate(self.pipeline):
             i = type(self.model.__class__.__name__, (object,), item)
             yield i
 
     def where(self, func):
+        fd = self.pipeline.remove(self.filter_dict)
         t = LambdaExpression.parse(func)
         j = json.loads(t.body.mongo)
         if "$and" in self.filter_dict["$match"]:
@@ -267,4 +266,5 @@ class WhereQueryable(Queryable):
         else:
             q = {"$and": [self.filter_dict["$match"], j]}
             self.filter_dict["$match"] = q
+        self.pipeline.append(self.filter_dict)
         return self

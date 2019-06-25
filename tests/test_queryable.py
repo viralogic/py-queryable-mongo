@@ -129,6 +129,9 @@ class QueryableTests(TestCase):
         query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 5).to_list()
         self.assertEqual(3, len(query))
 
+        query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.item == "jkl").to_list()
+        self.assertEqual(1, len(query))
+
     def test_combining_wheres(self):
         query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 5).where(lambda s: s.item == "abc").to_list()
         self.assertEqual(2, len(query))
@@ -137,9 +140,21 @@ class QueryableTests(TestCase):
         query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.date).first()
         self.assertEqual(datetime.datetime(2014, 1, 1, 8, 0), query.date)
 
+    def test_single(self):
+        query = Queryable(self.sales_collection, SaleModel).single(lambda s: s.item == "jkl")
+        self.assertEqual(20, query.price)
+
     def test_no_first(self):
         query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 20)
         self.assertRaises(exceptions.NoElementsError, query.first, None)
+
+    def test_no_single(self):
+        query = Queryable(self.sales_collection, SaleModel)
+        self.assertRaises(exceptions.NoMatchingElement, query.single, lambda s: s.price > 20)
+
+    def test_more_than_one_single(self):
+        query = Queryable(self.sales_collection, SaleModel)
+        self.assertRaises(exceptions.MoreThanOneMatchingElement, query.single, lambda s: s.item == "abc")
 
     def test_first_or_default(self):
         query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.date).first_or_default()
@@ -150,6 +165,8 @@ class QueryableTests(TestCase):
         query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 20).first_or_default()
         self.assertIsNone(query)
 
-    def test_max(self):
-        query = Queryable(self.sales_collection, SaleModel).max(lambda x: x.price)
-        self.assertEqual(20, query)
+    def test_single_or_default(self):
+        raise NotImplementedError()
+
+    def test_no_single_or_default(self):
+        raise NotImplementedError()
