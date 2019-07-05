@@ -140,6 +140,9 @@ class QueryableTests(TestCase):
         query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.date).first()
         self.assertEqual(datetime.datetime(2014, 1, 1, 8, 0), query.date)
 
+        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.date).first(lambda s: s.item == "jkl")
+        self.assertEqual(20, query.price)
+
     def test_single(self):
         query = Queryable(self.sales_collection, SaleModel).single(lambda s: s.item == "jkl")
         self.assertEqual(20, query.price)
@@ -165,8 +168,37 @@ class QueryableTests(TestCase):
         query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 20).first_or_default()
         self.assertIsNone(query)
 
+        query = Queryable(self.sales_collection, SaleModel).first_or_default(lambda s: s.price > 20)
+        self.assertIsNone(query)
+
     def test_single_or_default(self):
-        raise NotImplementedError()
+        query = Queryable(self.sales_collection, SaleModel).single_or_default(lambda s: s.item == "jkl")
+        self.assertIsNotNone(query)
+        self.assertEqual("jkl", query.item)
 
     def test_no_single_or_default(self):
-        raise NotImplementedError()
+        query = Queryable(self.sales_collection, SaleModel).single_or_default(lambda s: s.price > 20)
+        self.assertIsNone(query)
+
+    def test_any(self):
+        query = Queryable(self.sales_collection, SaleModel).any()
+        self.assertTrue(query)
+
+    def test_any_predicate(self):
+        query = Queryable(self.sales_collection, SaleModel).any(lambda s: s.item == "jkl")
+        self.assertTrue(query)
+
+        query = Queryable(self.sales_collection, SaleModel).any(lambda s: s.price > 20)
+        self.assertFalse(query)
+
+    def test_all_predicate_no_lambda(self):
+        query = Queryable(self.sales_collection, SaleModel).all()
+        self.assertTrue(query)
+
+    def test_all_predicate(self):
+        query = Queryable(self.sales_collection, SaleModel).all(lambda s: s.quantity >= 1)
+        self.assertTrue(query)
+
+    def test_all_predicate_only_one(self):
+        query = Queryable(self.sales_collection, SaleModel).all(lambda s: s.price >= 20)
+        self.assertFalse(query)

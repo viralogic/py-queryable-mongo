@@ -34,11 +34,12 @@ class Queryable(object):
     def count(self):
         """
         Returns the number of documents in the collection
-        :return: integer object
+        return -> integer object
         """
         self.pipeline.append({"$count": "total"})
         query = self.collection.aggregate(self.pipeline)
-        return py_linq.Enumerable(query).to_list()[0]["total"]
+        result = py_linq.Enumerable(query)
+        return result.first()["total"] if result.count() > 0 else 0
 
     def select(self, func, include_id=False):
         """
@@ -91,14 +92,25 @@ class Queryable(object):
     #     query = Queryable(operators.AveOperator(self.expression, func), self.provider)
     #     return self.provider.db_provider.execute_scalar(query.sql)
 
-    # def any(self, func=None):
-    #     return self.count() > 0 if func is None else self.where(func).count() > 0
+    def any(self, func=None):
+        """
+        Determines whether a sequence contains any elements that satisfy a given predicate
+        func -> lambda expression used to filter a sequence
+        return -> True if sequence does contain elements else False
+        """
+        return self.count() > 0 if func is None else self.where(func).count() > 0
 
-    # def all(self, func=None):
-    #     if func is None:
-    #         return True
-    #     count = self.count()
-    #     return self.where(func).count() == count
+    def all(self, func=None):
+        """
+        Determines whether all elements in a sequence satisfy a given condition
+        func => lambda expression used to filter a sequence
+        return -> True if all elements in the sequence satisfy a given predicate otherwise False
+        """
+        if func is None:
+            return True
+        predicate_count = self.where(func).count()
+        count = self.count()
+        return predicate_count == count
 
     def first(self, func=None):
         if func is not None:
@@ -121,8 +133,10 @@ class Queryable(object):
 
     def single(self, func=None):
         if func is None:
-            return self.take(1).to_list()[0]
-        result = self.where(func).take(2).to_list()
+            result = self
+        else:
+            result = self.where(func)
+        result = result.take(2).to_list()
         if len(result) == 0:
             raise exceptions.NoMatchingElement(u"No matching elements could be found")
         if len(result) > 1:
@@ -246,7 +260,7 @@ class WhereQueryable(Queryable):
     """
     def __init__(self, collection, model, pipeline, node):
         super(WhereQueryable, self).__init__(collection, model)
-        self.pipeline = pipeline
+        self.pipeline = pipeline.copy()
         self.node = node
         self.filter_dict = {}
         self.filter_dict["$match"] = json.loads(self.node.mongo)
