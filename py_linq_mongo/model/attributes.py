@@ -49,3 +49,12 @@ class DateTime(ModelAttribute):
         :param name -> The name of the date attribute in the MongoDB document
         """
         super(DateTime, self).__init__(datetime, name)
+
+
+class Array(ModelAttribute):
+    """
+    Attribute used to model an array attribute type of a document
+    :param name -> the name of the array attribute in the MongoDB document
+    """
+    def __init__(self, name):
+        super(Array, self).__init__(list, name)

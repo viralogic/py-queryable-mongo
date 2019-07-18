@@ -2,7 +2,7 @@ from unittest import TestCase
 import pymongo
 from py_linq_mongo.query import Queryable
 import datetime
-from . import SaleModel, LeagueModel, InvalidAttributeModel, EmptyCollectionNameModel
+from . import SaleModel, LeagueModel, StudentModel, InvalidAttributeModel, EmptyCollectionNameModel
 from py_linq import exceptions
 
 
@@ -22,6 +22,7 @@ class QueryableTests(TestCase):
         )
         self.collection = self.client["whl-data"][LeagueModel.__collection_name__]
         self.sales_collection = self.client["whl-data"][SaleModel.__collection_name__]
+        self.students_collection = self.client["whl-data"][StudentModel.__collection_name__]
 
     def test_constructor(self):
         query = Queryable(self.collection, LeagueModel)
@@ -202,3 +203,29 @@ class QueryableTests(TestCase):
     def test_all_predicate_only_one(self):
         query = Queryable(self.sales_collection, SaleModel).all(lambda s: s.price >= 20)
         self.assertFalse(query)
+
+    def test_max_selector(self):
+        query = Queryable(self.sales_collection, SaleModel).max(lambda s: s.price)
+        self.assertEqual(20, query)
+
+    def test_min_selector(self):
+        query = Queryable(self.sales_collection, SaleModel).min(lambda s: s.price)
+        self.assertEqual(5, query)
+
+    def test_max_no_selector(self):
+        query = Queryable(self.sales_collection, SaleModel)
+        self.assertRaises(AttributeError, query.max)
+        self.assertRaises(TypeError, query.max, lambda s: s.price < 20)
+
+    def test_min_no_selector(self):
+        query = Queryable(self.sales_collection, SaleModel)
+        self.assertRaises(AttributeError, query.min)
+        self.assertRaises(TypeError, query.min, lambda s: s.price < 20)
+
+    def test_max_select_array(self):
+        query = Queryable(self.students_collection, StudentModel).max(lambda s: s.labs)
+        self.assertEqual(8, query)
+
+    def test_min_select_array(self):
+        query = Queryable(self.students_collection, StudentModel).min(lambda s: s.labs)
+        self.assertEqual(5, query)

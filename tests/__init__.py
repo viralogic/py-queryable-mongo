@@ -19,6 +19,14 @@ class SaleModel(object):
     date = attributes.DateTime("date")
 
 
+class StudentModel(object):
+    __collection_name__ = "students"
+
+    id = attributes.ObjectId()
+    quizzes = attributes.Array("quizzes")
+    labs = attributes.Array("labs")
+
+
 class InvalidAttributeModel(object):
     __invalid_name__ = "team"
 

@@ -64,25 +64,69 @@ class Queryable(object):
         return self
 
     def skip(self, offset):
+        """
+
+        """
         self.pipeline.append({"$skip": offset})
         return self
 
     def where(self, func):
+        """
+        Filters a sequence of elements by only returning the elements that satisfy a given predicate
+        func -> predicate to filter sequence as a lambda function
+        return -> Queryable object that only contains elements that satisfy the given predicate
+        """
         t = LambdaExpression.parse(func)
         return WhereQueryable(self.collection, self.model, self.pipeline, t.body)
 
-    # def max(self, func=None):
-    #     if func is None:
-    #         return self.as_enumerable().max()
-    #     t = LambdaExpression.parse(func)
-    #     if not isinstance(t.body.value, ast.Name):
-    #         raise TypeError("Must select a property of {0}".format(self.model.__class__.__name__))
-    #     v = self.order_by_descending(func).first_or_default()
-    #     return None if v is None else func(v)
+    def max(self, func=None):
+        """
+        Finds the maximum value. If a lambda function is given, then will find the maximum value for the
+        given field.
+        func -> selector for the field want to determine the maximum of as a lambda function
+        return -> the maximum value as a scalar value
+        """
+        if func is None:
+            return self.first().max
+        t = LambdaExpression.parse(func)
+        if not isinstance(t.body.value, ast.Name):
+            raise TypeError("Must select a property of {0}".format(self.model.__class__.__name__))
+        grouping = {
+            "$group": {
+                "_id": None,
+                "max": {
+                    "$max": "${0}".format(t.body.mongo)
+                }
+            }
+        }
+        self.pipeline.append(grouping)
+        # Check to see if array attribute. If so, we need to do an additional projection
+        
+        return self.first().max
 
-    # def min(self, func=None):
-    #     query = Queryable(operators.MinOperator(self.expression, func), self.provider)
-    #     return self.provider.db_provider.execute_scalar(query.sql)
+    def min(self, func=None):
+        """
+        Finds the minimum value. If a lambda function is given, then will find the minimum value for the
+        given field.
+        func -> selector for the field want to determine the minimum of as a lambda function
+        return -> the minimum value as a scalar value
+        """
+        if func is None:
+            return self.first().min
+        t = LambdaExpression.parse(func)
+        if not isinstance(t.body.value, ast.Name):
+            raise TypeError("Must select a property of {0}".format(self.model.__class__.__name__))
+        grouping = {
+            "$group": {
+                "_id": None,
+                "min": {
+                    "$min": "${0}".format(t.body.mongo)
+                }
+            }
+        }
+        self.pipeline.append(grouping)
+        
+        return self.first().min
 
     # def sum(self, func=None):
     #     query = Queryable(operators.SumOperator(self.expression, func), self.provider)
