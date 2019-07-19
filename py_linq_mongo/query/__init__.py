@@ -44,9 +44,7 @@ class Queryable(object):
     def select(self, func, include_id=False):
         """
         Projects each element of a document into a new form given by func
-
         func -> A projection function to apply to each element.
-
         return -> Queryable object
         """
         t = LambdaExpression.parse(func)
@@ -86,55 +84,34 @@ class Queryable(object):
         func -> selector for the field want to determine the maximum of as a lambda function
         return -> the maximum value as a scalar value
         """
-        if func is None:
-            return self.first().max
-        t = LambdaExpression.parse(func)
-        if not isinstance(t.body.value, ast.Name):
-            raise TypeError("Must select a property of {0}".format(self.model.__class__.__name__))
-        grouping = {
-            "$group": {
-                "_id": None,
-                "max": {
-                    "$max": "${0}".format(t.body.mongo)
-                }
-            }
-        }
-        self.pipeline.append(grouping)
-        # Check to see if array attribute. If so, we need to do an additional projection
-        
-        return self.first().max
+        return ScalarSelectQueryable(self.collection, self.pipeline, "$max", func).scalar
 
     def min(self, func=None):
         """
         Finds the minimum value. If a lambda function is given, then will find the minimum value for the
         given field.
-        func -> selector for the field want to determine the minimum of as a lambda function
+        func -> selector for the field to determine the minimum of as a lambda function
         return -> the minimum value as a scalar value
         """
-        if func is None:
-            return self.first().min
-        t = LambdaExpression.parse(func)
-        if not isinstance(t.body.value, ast.Name):
-            raise TypeError("Must select a property of {0}".format(self.model.__class__.__name__))
-        grouping = {
-            "$group": {
-                "_id": None,
-                "min": {
-                    "$min": "${0}".format(t.body.mongo)
-                }
-            }
-        }
-        self.pipeline.append(grouping)
-        
-        return self.first().min
+        return ScalarSelectQueryable(self.collection, self.pipeline, "$min", func).scalar
 
-    # def sum(self, func=None):
-    #     query = Queryable(operators.SumOperator(self.expression, func), self.provider)
-    #     return self.provider.db_provider.execute_scalar(query.sql)
+    def sum(self, func=None):
+        """
+        Sums the values in a collection. If a lambda function is given, then it will sum only the values for
+        the given field.
+        func -> selector for the field to sum as a lambda function. Optional.
+        return -> the sum of the values
+        """
+        return ScalarSelectQueryable(self.collection, self.pipeline, "$sum", func).scalar
 
-    # def average(self, func=None):
-    #     query = Queryable(operators.AveOperator(self.expression, func), self.provider)
-    #     return self.provider.db_provider.execute_scalar(query.sql)
+    def average(self, func=None):
+        """
+        Averages the values in a collection. If a lambda function is given, then it will average only the values
+        for the given field.
+        func -> selector for the field to average as a lambda function. Optional
+        return -> the average of the values
+        """
+        return ScalarSelectQueryable(self.collection, self.pipeline, "$avg", func).scalar
 
     def any(self, func=None):
         """
@@ -207,7 +184,7 @@ class SelectQueryable(abc.ABC, Queryable):
     def __init__(self, collection, pipeline, node, include_id):
         self.include_id = include_id
         self.node = node
-        self.pipeline = py_linq.Enumerable(pipeline).add(self.projection).to_list()
+        self.pipeline = py_linq.Enumerable(pipeline).add(self.projection).to_list() if self.projection is not None else py_linq.Enumerable(pipeline).to_list()
         self.collection = collection
 
     @abc.abstractproperty
@@ -235,6 +212,49 @@ class SimpleSelectQueryable(SelectQueryable):
     def __iter__(self):
         for e in self.collection.aggregate(self.pipeline):
             yield tuple([v for k, v in e.items()])
+
+
+class ScalarSelectQueryable(object):
+    """
+    Performs projection of a collection using scalar operator
+    """
+    def __init__(self, collection, pipeline, operator, func):
+        """
+        Constructor for a projection of collection to scalar
+        collection -> the collection that is being queried
+        pipeline -> the aggregate pipeline as a list
+        operator -> the Mongo scalar operator $min, $max, etc
+        func -> lambda function as a selector
+        """
+        self.operator = operator
+        self.func = func
+        self.collection = collection
+        t = None if self.func is None else LambdaExpression.parse(func)
+        if not isinstance(t.body.value, ast.Name):
+            raise TypeError("lambda function must select a property")
+        self.node = t.body
+        self.pipeline = py_linq.Enumerable(pipeline).add(self.grouping).to_list() if self.grouping is not None else py_linq.Enumerable(pipeline).to_list()
+
+    @property
+    def grouping(self):
+        if self.node is None:
+            return
+        grouping = {
+            "$group": {
+                "_id": None,
+                "value": {}
+            }
+        }
+        grouping["$group"]["value"][self.operator] = "${0}".format(self.node.mongo)
+        return grouping
+
+    @property
+    def scalar(self):
+        o = py_linq.Enumerable(self.collection.aggregate(self.pipeline)).first()
+        m = o["value"]
+        if hasattr(m, "__iter__"):
+            raise TypeError("Please use select_many before calling a scalar operator")
+        return m
 
 
 class DictSelectQueryable(SelectQueryable):

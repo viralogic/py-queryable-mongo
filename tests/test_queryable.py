@@ -223,9 +223,18 @@ class QueryableTests(TestCase):
         self.assertRaises(TypeError, query.min, lambda s: s.price < 20)
 
     def test_max_select_array(self):
-        query = Queryable(self.students_collection, StudentModel).max(lambda s: s.labs)
-        self.assertEqual(8, query)
+        query = Queryable(self.students_collection, StudentModel)
+        self.assertRaises(TypeError, query.max, lambda s: s.labs)
 
     def test_min_select_array(self):
-        query = Queryable(self.students_collection, StudentModel).min(lambda s: s.labs)
-        self.assertEqual(5, query)
+        query = Queryable(self.students_collection, StudentModel)
+        self.assertRaises(TypeError, query.min, lambda s: s.labs)
+
+    def test_sum_selector(self):
+        query = Queryable(self.sales_collection, SaleModel).sum(lambda s: s.quantity)
+        self.assertEqual(28, query)
+
+    def test_avg_selector(self):
+        query = Queryable(self.sales_collection, SaleModel).average(lambda s: s.quantity)
+        avg = 28 / 5
+        self.assertEqual(avg, query)
