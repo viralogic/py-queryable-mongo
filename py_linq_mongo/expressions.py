@@ -1,6 +1,5 @@
 import ast
 import json
-import py
 from .decompile import LambdaDecompiler
 
 
@@ -10,6 +9,7 @@ class LambdaExpression(object):
     Parses a Python lambda expression and returns a modified AST that contains
     appropriate Mongo syntax
     """
+
     @staticmethod
     def parse(func):
         decompiler = LambdaDecompiler()
@@ -23,6 +23,7 @@ class CollectionLambdaTranslator(ast.NodeVisitor):
     """
     Visitor for converting lambda expressions into Mongo query
     """
+
     def __init__(self):
         """
         Default constructor
@@ -111,7 +112,9 @@ class CollectionLambdaTranslator(ast.NodeVisitor):
             if isinstance(predicate, ast.BoolOp):
                 self.generic_visit(predicate)
                 if node.op.mongo == predicate.op.mongo:
-                    v[node.op.mongo].extend(list(map(lambda p: p.mongo, predicate.values)))
+                    v[node.op.mongo].extend(
+                        list(map(lambda p: p.mongo, predicate.values))
+                    )
                     continue
             v[node.op.mongo].append(predicate.mongo)
         node.mongo = json.dumps(v)
@@ -119,8 +122,16 @@ class CollectionLambdaTranslator(ast.NodeVisitor):
     def visit_BinOp(self, node):
         self.generic_visit(node)
         v = {}
-        left = "${0}".format(node.left.mongo) if isinstance(node.left, ast.Attribute) else node.left.mongo
-        right = "${0}".format(node.right.mongo) if isinstance(node.right, ast.Attribute) else node.right.mongo
+        left = (
+            "${0}".format(node.left.mongo)
+            if isinstance(node.left, ast.Attribute)
+            else node.left.mongo
+        )
+        right = (
+            "${0}".format(node.right.mongo)
+            if isinstance(node.right, ast.Attribute)
+            else node.right.mongo
+        )
         v[node.op.mongo] = [left, right]
         node.mongo = json.dumps(v)
 
@@ -129,13 +140,13 @@ class CollectionLambdaTranslator(ast.NodeVisitor):
         v = {}
         v[node.operand.left.attr] = {}
         v[node.operand.left.attr][node.op.mongo] = {}
-        v[node.operand.left.attr][node.op.mongo][node.operand.ops[0].mongo] = node.operand.comparators[0].mongo
+        v[node.operand.left.attr][node.op.mongo][
+            node.operand.ops[0].mongo
+        ] = node.operand.comparators[0].mongo
         node.mongo = json.dumps(v)
 
     def visit_List(self, node):
-        v = {
-            "$project": {}
-        }
+        v = {"$project": {}}
         for e in node.elts:
             v["$project"][e.attr] = "${0}".format(e.attr)
         node.mongo = json.dumps(v)
@@ -144,9 +155,7 @@ class CollectionLambdaTranslator(ast.NodeVisitor):
         self.visit_List(node)
 
     def visit_Dict(self, node):
-        v = {
-            "$project": {}
-        }
+        v = {"$project": {}}
         for i in range(len(node.keys)):
             key = node.keys[i].s
             value = "${0}".format(node.values[i].attr)

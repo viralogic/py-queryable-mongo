@@ -33,6 +33,7 @@ class LambdaDecompiler(Decompiler):
     """
     Class used to decompile a lambda code object to an abstract syntax tree
     """
+
     def __init__(self):
         super(LambdaDecompiler, self).__init__()
 
@@ -44,14 +45,17 @@ class LambdaDecompiler(Decompiler):
         """
         instructions = list(instructions)
         visitor = InstructionVisitor(instructions)
-        lineno = instructions[0].starts_line if instructions is not None and len(instructions) > 0 else 0
-        body = ast.Return(
-            value=visitor.visit(),
-            lineno=lineno,
-            col_offset=0
+        lineno = (
+            instructions[0].starts_line
+            if instructions is not None and len(instructions) > 0
+            else 0
         )
-        args = [ast.Name(id=arg, ctx=ast.Param()) for arg in code.co_varnames[:code.co_argcount]]
-        co_locals = code.co_varnames[code.co_argcount:]
+        body = ast.Return(value=visitor.visit(), lineno=lineno, col_offset=0)
+        args = [
+            ast.Name(id=arg, ctx=ast.Param())
+            for arg in code.co_varnames[: code.co_argcount]
+        ]
+        co_locals = code.co_varnames[code.co_argcount :]
         return ast.Lambda(
             args=ast.arguments(
                 args=args,
@@ -59,9 +63,9 @@ class LambdaDecompiler(Decompiler):
                 vararg=co_locals.pop(0) if code.co_flags & 4 else None,
                 kwarg=co_locals.pop() if code.co_flags & 8 else None,
                 lineno=lineno,
-                col_offset=0
+                col_offset=0,
             ),
             body=body,
             lineno=lineno,
-            col_offset=0
+            col_offset=0,
         )

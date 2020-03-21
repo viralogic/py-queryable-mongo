@@ -6,6 +6,7 @@ class Stack(object):
     """
     Encapsulates logic of a stack
     """
+
     def __init__(self, items=None):
         if items is not None:
             if not isinstance(items, deque):
@@ -68,6 +69,7 @@ class Queue(Stack):
     """
     Encapsulates logic of a queue using Stack API
     """
+
     def __init__(self):
         """
         Default constructor
@@ -96,6 +98,5 @@ class Queue(Stack):
         for i in self.items:
             if i is None:
                 continue
-            cpy = copy.deepcopy(i)
             queue.push(i)
         return queue

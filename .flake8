@@ -1,5 +1,5 @@
 [flake8]
 max-line-length = 80
 max-complexity = 10
-ignore = W503, W291
+ignore = W503, W291, E501, E203
 exclude = .git,__pycache__,.venv

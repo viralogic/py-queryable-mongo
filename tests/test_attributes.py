@@ -6,6 +6,7 @@ class AttributeTests(TestCase):
     """
     Unit tests for different attribute types
     """
+
     def test_non_string_name(self):
         """
         Make sure that a TypeError is raised if name is not a string

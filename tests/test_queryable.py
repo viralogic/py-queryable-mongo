@@ -1,75 +1,81 @@
 from unittest import TestCase
-import pymongo
+import mongomock
 from py_linq_mongo.query import Queryable
 import datetime
-from . import SaleModel, LeagueModel, StudentModel, InvalidAttributeModel, EmptyCollectionNameModel
+from . import SaleModel, LeagueModel, StudentModel
 from py_linq import exceptions
+from .data import MongoData
 
 
 class QueryableTests(TestCase):
     """
     Unit tests for Queryable class
     """
+
     def setUp(self):
         """
         Sets up query to collection
         """
-        self.client = pymongo.MongoClient(
-            host="localhost:27017",
-            username="whl_user",
-            password="Dawn381!",
-            authSource="whl-data"
-        )
-        self.collection = self.client["whl-data"][LeagueModel.__collection_name__]
-        self.sales_collection = self.client["whl-data"][SaleModel.__collection_name__]
-        self.students_collection = self.client["whl-data"][StudentModel.__collection_name__]
-
-    def test_constructor(self):
-        query = Queryable(self.collection, LeagueModel)
-        self.assertIsInstance(query, Queryable)
-        self.assertIsInstance(query.collection, pymongo.collection.Collection)
+        self.client = mongomock.MongoClient()
+        self.db = self.client["whl-data"]
+        seeder = MongoData(self.db)
+        seeder.seed_data()
+        self.collection = self.db[LeagueModel.__collection_name__]
+        self.sales_collection = self.db[SaleModel.__collection_name__]
+        self.students_collection = self.db[StudentModel.__collection_name__]
 
     def test_count(self):
         query = Queryable(self.collection, LeagueModel)
-        count = query.count()
         self.assertEqual(1, query.count())
 
     def test_iterable(self):
-        query = Queryable(self.client["whl-data"][LeagueModel.__collection_name__], LeagueModel)
+        query = Queryable(
+            self.client["whl-data"][LeagueModel.__collection_name__],
+            LeagueModel,
+        )
         self.assertRaises(TypeError, query.__iter__, None)
 
     def test_select(self):
-        query = Queryable(self.collection, LeagueModel).select(lambda x: x.short_name)
+        query = Queryable(self.collection, LeagueModel).select(
+            lambda x: x.short_name
+        )
         result = list(query)
         self.assertEqual(1, len(result))
         self.assertEqual("WHL", result[0][0])
 
     def test_select_list(self):
-        query = Queryable(self.collection, LeagueModel).select(lambda x: [x.name, x.short_name])
+        query = Queryable(self.collection, LeagueModel).select(
+            lambda x: [x.name, x.short_name]
+        )
         result = list(query)
         self.assertEqual(1, len(result))
         self.assertEqual("Western Hockey League", result[0][0])
         self.assertEqual("WHL", result[0][1])
 
     def test_select_tuple(self):
-        query = Queryable(self.collection, LeagueModel).select(lambda x: (x.name, x.short_name))
+        query = Queryable(self.collection, LeagueModel).select(
+            lambda x: (x.name, x.short_name)
+        )
         result = list(query)
         self.assertEqual(1, len(result))
         self.assertEqual("Western Hockey League", result[0][0])
         self.assertEqual("WHL", result[0][1])
 
     def test_select_dict(self):
-        query = Queryable(self.collection, LeagueModel).select(lambda x: {
-            "name": x.name,
-            "short_name": x.short_name
-        })
+        query = Queryable(self.collection, LeagueModel).select(
+            lambda x: {"name": x.name, "short_name": x.short_name}
+        )
         result = list(query)
         self.assertEqual(1, len(result))
         self.assertEqual("Western Hockey League", result[0]["name"])
         self.assertEqual("WHL", result[0]["short_name"])
 
     def test_select_count(self):
-        query = Queryable(self.collection, LeagueModel).select(lambda x: x.name).count()
+        query = (
+            Queryable(self.collection, LeagueModel)
+            .select(lambda x: x.name)
+            .count()
+        )
         self.assertEqual(1, query)
 
     def test_to_list(self):
@@ -99,86 +105,159 @@ class QueryableTests(TestCase):
         self.assertEqual(0, len(query.to_list()))
 
     def test_order_by(self):
-        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.price).to_list()[0]
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by(lambda s: s.price)
+            .to_list()[0]
+        )
         self.assertEqual(5, query.price)
 
     def test_order_by_descending(self):
-        query = Queryable(self.sales_collection, SaleModel).order_by_descending(lambda s: s.price).to_list()[0]
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by_descending(lambda s: s.price)
+            .to_list()[0]
+        )
         self.assertEqual(20, query.price)
 
     def test_order_by_then_by(self):
-        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.price).then_by(lambda s: s.date).to_list()[0]
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by(lambda s: s.price)
+            .then_by(lambda s: s.date)
+            .to_list()[0]
+        )
         self.assertEqual(5, query.price)
         self.assertEqual(datetime.datetime(2014, 2, 3, 9, 5), query.date)
 
     def test_order_by_then_by_descending(self):
-        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.price).then_by_descending(lambda s: s.date).to_list()[0]
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by(lambda s: s.price)
+            .then_by_descending(lambda s: s.date)
+            .to_list()[0]
+        )
         self.assertEqual(5, query.price)
         self.assertEqual(datetime.datetime(2014, 2, 15, 9, 5), query.date)
 
     def test_order_by_descending_then_by(self):
-        query = Queryable(self.sales_collection, SaleModel).order_by_descending(lambda s: s.price).then_by(lambda s: s.quantity).to_list()[0]
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by_descending(lambda s: s.price)
+            .then_by(lambda s: s.quantity)
+            .to_list()[0]
+        )
         self.assertEqual(20, query.price)
         self.assertEqual(1, query.quantity)
 
     def test_order_by_descending_then_by_descending(self):
-        query = Queryable(self.sales_collection, SaleModel).order_by_descending(lambda s: s.price).then_by_descending(lambda s: s.quantity).to_list()[0]
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by_descending(lambda s: s.price)
+            .then_by_descending(lambda s: s.quantity)
+            .to_list()[0]
+        )
         self.assertEqual(20, query.price)
         self.assertEqual(1, query.quantity)
 
     def test_where(self):
-        query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 5).to_list()
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .where(lambda s: s.price > 5)
+            .to_list()
+        )
         self.assertEqual(3, len(query))
 
-        query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.item == "jkl").to_list()
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .where(lambda s: s.item == "jkl")
+            .to_list()
+        )
         self.assertEqual(1, len(query))
 
     def test_combining_wheres(self):
-        query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 5).where(lambda s: s.item == "abc").to_list()
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .where(lambda s: s.price > 5)
+            .where(lambda s: s.item == "abc")
+            .to_list()
+        )
         self.assertEqual(2, len(query))
 
     def test_first(self):
-        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.date).first()
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by(lambda s: s.date)
+            .first()
+        )
         self.assertEqual(datetime.datetime(2014, 1, 1, 8, 0), query.date)
 
-        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.date).first(lambda s: s.item == "jkl")
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by(lambda s: s.date)
+            .first(lambda s: s.item == "jkl")
+        )
         self.assertEqual(20, query.price)
 
     def test_single(self):
-        query = Queryable(self.sales_collection, SaleModel).single(lambda s: s.item == "jkl")
+        query = Queryable(self.sales_collection, SaleModel).single(
+            lambda s: s.item == "jkl"
+        )
         self.assertEqual(20, query.price)
 
     def test_no_first(self):
-        query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 20)
+        query = Queryable(self.sales_collection, SaleModel).where(
+            lambda s: s.price > 20
+        )
         self.assertRaises(exceptions.NoElementsError, query.first, None)
 
     def test_no_single(self):
         query = Queryable(self.sales_collection, SaleModel)
-        self.assertRaises(exceptions.NoMatchingElement, query.single, lambda s: s.price > 20)
+        self.assertRaises(
+            exceptions.NoMatchingElement, query.single, lambda s: s.price > 20
+        )
 
     def test_more_than_one_single(self):
         query = Queryable(self.sales_collection, SaleModel)
-        self.assertRaises(exceptions.MoreThanOneMatchingElement, query.single, lambda s: s.item == "abc")
+        self.assertRaises(
+            exceptions.MoreThanOneMatchingElement,
+            query.single,
+            lambda s: s.item == "abc",
+        )
 
     def test_first_or_default(self):
-        query = Queryable(self.sales_collection, SaleModel).order_by(lambda s: s.date).first_or_default()
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by(lambda s: s.date)
+            .first_or_default()
+        )
         self.assertIsNotNone(query)
         self.assertEqual(datetime.datetime(2014, 1, 1, 8, 0), query.date)
 
     def test_no_first_or_default(self):
-        query = Queryable(self.sales_collection, SaleModel).where(lambda s: s.price > 20).first_or_default()
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .where(lambda s: s.price > 20)
+            .first_or_default()
+        )
         self.assertIsNone(query)
 
-        query = Queryable(self.sales_collection, SaleModel).first_or_default(lambda s: s.price > 20)
+        query = Queryable(self.sales_collection, SaleModel).first_or_default(
+            lambda s: s.price > 20
+        )
         self.assertIsNone(query)
 
     def test_single_or_default(self):
-        query = Queryable(self.sales_collection, SaleModel).single_or_default(lambda s: s.item == "jkl")
+        query = Queryable(self.sales_collection, SaleModel).single_or_default(
+            lambda s: s.item == "jkl"
+        )
         self.assertIsNotNone(query)
         self.assertEqual("jkl", query.item)
 
     def test_no_single_or_default(self):
-        query = Queryable(self.sales_collection, SaleModel).single_or_default(lambda s: s.price > 20)
+        query = Queryable(self.sales_collection, SaleModel).single_or_default(
+            lambda s: s.price > 20
+        )
         self.assertIsNone(query)
 
     def test_any(self):
@@ -186,10 +265,14 @@ class QueryableTests(TestCase):
         self.assertTrue(query)
 
     def test_any_predicate(self):
-        query = Queryable(self.sales_collection, SaleModel).any(lambda s: s.item == "jkl")
+        query = Queryable(self.sales_collection, SaleModel).any(
+            lambda s: s.item == "jkl"
+        )
         self.assertTrue(query)
 
-        query = Queryable(self.sales_collection, SaleModel).any(lambda s: s.price > 20)
+        query = Queryable(self.sales_collection, SaleModel).any(
+            lambda s: s.price > 20
+        )
         self.assertFalse(query)
 
     def test_all_predicate_no_lambda(self):
@@ -197,19 +280,27 @@ class QueryableTests(TestCase):
         self.assertTrue(query)
 
     def test_all_predicate(self):
-        query = Queryable(self.sales_collection, SaleModel).all(lambda s: s.quantity >= 1)
+        query = Queryable(self.sales_collection, SaleModel).all(
+            lambda s: s.quantity >= 1
+        )
         self.assertTrue(query)
 
     def test_all_predicate_only_one(self):
-        query = Queryable(self.sales_collection, SaleModel).all(lambda s: s.price >= 20)
+        query = Queryable(self.sales_collection, SaleModel).all(
+            lambda s: s.price >= 20
+        )
         self.assertFalse(query)
 
     def test_max_selector(self):
-        query = Queryable(self.sales_collection, SaleModel).max(lambda s: s.price)
+        query = Queryable(self.sales_collection, SaleModel).max(
+            lambda s: s.price
+        )
         self.assertEqual(20, query)
 
     def test_min_selector(self):
-        query = Queryable(self.sales_collection, SaleModel).min(lambda s: s.price)
+        query = Queryable(self.sales_collection, SaleModel).min(
+            lambda s: s.price
+        )
         self.assertEqual(5, query)
 
     def test_max_no_selector(self):
@@ -231,10 +322,14 @@ class QueryableTests(TestCase):
         self.assertRaises(TypeError, query.min, lambda s: s.labs)
 
     def test_sum_selector(self):
-        query = Queryable(self.sales_collection, SaleModel).sum(lambda s: s.quantity)
+        query = Queryable(self.sales_collection, SaleModel).sum(
+            lambda s: s.quantity
+        )
         self.assertEqual(28, query)
 
     def test_avg_selector(self):
-        query = Queryable(self.sales_collection, SaleModel).average(lambda s: s.quantity)
+        query = Queryable(self.sales_collection, SaleModel).average(
+            lambda s: s.quantity
+        )
         avg = 28 / 5
         self.assertEqual(avg, query)

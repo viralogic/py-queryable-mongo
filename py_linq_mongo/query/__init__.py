@@ -1,7 +1,5 @@
-import pymongo
 import json
 import ast
-import collections
 from ..expressions import LambdaExpression
 import abc
 import py_linq
@@ -12,6 +10,7 @@ class Queryable(object):
     """
     Class that encapsulates different methods to query a MongoDb collection
     """
+
     def __init__(self, collection, model):
         """
         Queryable constructor
@@ -37,9 +36,8 @@ class Queryable(object):
         return -> integer object
         """
         self.pipeline.append({"$count": "total"})
-        query = self.collection.aggregate(self.pipeline)
-        result = py_linq.Enumerable(query)
-        return result.first()["total"] if result.count() > 0 else 0
+        query = list(self.collection.aggregate(self.pipeline))
+        return query[0]["total"]
 
     def select(self, func, include_id=False):
         """
@@ -49,13 +47,25 @@ class Queryable(object):
         """
         t = LambdaExpression.parse(func)
         if isinstance(t.body.value, ast.Name):
-            return SimpleSelectQueryable(self.collection, self.pipeline, t.body, include_id)
-        if isinstance(t.body.value, ast.Tuple) or isinstance(t.body.value, ast.List):
-            return CollectionSelectQueryable(self.collection, self.pipeline, t.body, include_id)
+            return SimpleSelectQueryable(
+                self.collection, self.pipeline, t.body, include_id
+            )
+        if isinstance(t.body.value, ast.Tuple) or isinstance(
+            t.body.value, ast.List
+        ):
+            return CollectionSelectQueryable(
+                self.collection, self.pipeline, t.body, include_id
+            )
         if isinstance(t.body.value, ast.Dict):
-            return DictSelectQueryable(self.collection, self.pipeline, t.body, include_id)
+            return DictSelectQueryable(
+                self.collection, self.pipeline, t.body, include_id
+            )
         else:
-            raise TypeError("Cannot project {0} node".format(t.body.value.__class__.__name__))
+            raise TypeError(
+                "Cannot project {0} node".format(
+                    t.body.value.__class__.__name__
+                )
+            )
 
     def take(self, limit):
         self.pipeline.append({"$limit": limit})
@@ -75,7 +85,9 @@ class Queryable(object):
         return -> Queryable object that only contains elements that satisfy the given predicate
         """
         t = LambdaExpression.parse(func)
-        return WhereQueryable(self.collection, self.model, self.pipeline, t.body)
+        return WhereQueryable(
+            self.collection, self.model, self.pipeline, t.body
+        )
 
     def max(self, func=None):
         """
@@ -84,7 +96,9 @@ class Queryable(object):
         func -> selector for the field want to determine the maximum of as a lambda function
         return -> the maximum value as a scalar value
         """
-        return ScalarSelectQueryable(self.collection, self.pipeline, "$max", func).scalar
+        return ScalarSelectQueryable(
+            self.collection, self.pipeline, "$max", func
+        ).scalar
 
     def min(self, func=None):
         """
@@ -93,7 +107,9 @@ class Queryable(object):
         func -> selector for the field to determine the minimum of as a lambda function
         return -> the minimum value as a scalar value
         """
-        return ScalarSelectQueryable(self.collection, self.pipeline, "$min", func).scalar
+        return ScalarSelectQueryable(
+            self.collection, self.pipeline, "$min", func
+        ).scalar
 
     def sum(self, func=None):
         """
@@ -102,7 +118,9 @@ class Queryable(object):
         func -> selector for the field to sum as a lambda function. Optional.
         return -> the sum of the values
         """
-        return ScalarSelectQueryable(self.collection, self.pipeline, "$sum", func).scalar
+        return ScalarSelectQueryable(
+            self.collection, self.pipeline, "$sum", func
+        ).scalar
 
     def average(self, func=None):
         """
@@ -111,7 +129,9 @@ class Queryable(object):
         func -> selector for the field to average as a lambda function. Optional
         return -> the average of the values
         """
-        return ScalarSelectQueryable(self.collection, self.pipeline, "$avg", func).scalar
+        return ScalarSelectQueryable(
+            self.collection, self.pipeline, "$avg", func
+        ).scalar
 
     def any(self, func=None):
         """
@@ -119,7 +139,9 @@ class Queryable(object):
         func -> lambda expression used to filter a sequence
         return -> True if sequence does contain elements else False
         """
-        return self.count() > 0 if func is None else self.where(func).count() > 0
+        return (
+            self.count() > 0 if func is None else self.where(func).count() > 0
+        )
 
     def all(self, func=None):
         """
@@ -146,11 +168,15 @@ class Queryable(object):
 
     def order_by(self, func):
         t = LambdaExpression.parse(func)
-        return OrderedQueryable(self.collection, self.model, self.pipeline, t.body, 1)
+        return OrderedQueryable(
+            self.collection, self.model, self.pipeline, t.body, 1
+        )
 
     def order_by_descending(self, func):
         t = LambdaExpression.parse(func)
-        return OrderedQueryable(self.collection, self.model, self.pipeline, t.body, -1)
+        return OrderedQueryable(
+            self.collection, self.model, self.pipeline, t.body, -1
+        )
 
     def single(self, func=None):
         if func is None:
@@ -159,9 +185,13 @@ class Queryable(object):
             result = self.where(func)
         result = result.take(2).to_list()
         if len(result) == 0:
-            raise exceptions.NoMatchingElement(u"No matching elements could be found")
+            raise exceptions.NoMatchingElement(
+                u"No matching elements could be found"
+            )
         if len(result) > 1:
-            raise exceptions.MoreThanOneMatchingElement(u"More than one matching element found")
+            raise exceptions.MoreThanOneMatchingElement(
+                u"More than one matching element found"
+            )
         return result[0]
 
     def single_or_default(self, func=None):
@@ -181,10 +211,15 @@ class SelectQueryable(abc.ABC, Queryable):
     """
     Abstract class for select queryable
     """
+
     def __init__(self, collection, pipeline, node, include_id):
         self.include_id = include_id
         self.node = node
-        self.pipeline = py_linq.Enumerable(pipeline).add(self.projection).to_list() if self.projection is not None else py_linq.Enumerable(pipeline).to_list()
+        self.pipeline = (
+            list(pipeline).append(self.projection)
+            if self.projection is not None
+            else list(pipeline)
+        )
         self.collection = collection
 
     @abc.abstractproperty
@@ -196,16 +231,15 @@ class SimpleSelectQueryable(SelectQueryable):
     """
     Performs a projection of a collection when ast.Name is encountered
     """
+
     def __init__(self, collection, pipeline, node, include_id=False):
-        super(SimpleSelectQueryable, self).__init__(collection, pipeline, node, include_id)
+        super(SimpleSelectQueryable, self).__init__(
+            collection, pipeline, node, include_id
+        )
 
     @property
     def projection(self):
-        project = {
-            "$project": {
-                "_id": 1 if self.include_id else 0
-            }
-        }
+        project = {"$project": {"_id": 1 if self.include_id else 0}}
         project["$project"][self.node.mongo] = "${0}".format(self.node.mongo)
         return project
 
@@ -218,6 +252,7 @@ class ScalarSelectQueryable(object):
     """
     Performs projection of a collection using scalar operator
     """
+
     def __init__(self, collection, pipeline, operator, func):
         """
         Constructor for a projection of collection to scalar
@@ -233,27 +268,30 @@ class ScalarSelectQueryable(object):
         if not isinstance(t.body.value, ast.Name):
             raise TypeError("lambda function must select a property")
         self.node = t.body
-        self.pipeline = py_linq.Enumerable(pipeline).add(self.grouping).to_list() if self.grouping is not None else py_linq.Enumerable(pipeline).to_list()
+        self.pipeline = (
+            list(pipeline).append(self.grouping)
+            if self.grouping is not None
+            else list(pipeline)
+        )
 
     @property
     def grouping(self):
         if self.node is None:
             return
-        grouping = {
-            "$group": {
-                "_id": None,
-                "value": {}
-            }
-        }
-        grouping["$group"]["value"][self.operator] = "${0}".format(self.node.mongo)
+        grouping = {"$group": {"_id": None, "value": {}}}
+        grouping["$group"]["value"][self.operator] = "${0}".format(
+            self.node.mongo
+        )
         return grouping
 
     @property
     def scalar(self):
-        o = py_linq.Enumerable(self.collection.aggregate(self.pipeline)).first()
+        o = list(self.collection.aggregate(self.pipeline))[0]
         m = o["value"]
         if hasattr(m, "__iter__"):
-            raise TypeError("Please use select_many before calling a scalar operator")
+            raise TypeError(
+                "Please use select_many before calling a scalar operator"
+            )
         return m
 
 
@@ -261,8 +299,11 @@ class DictSelectQueryable(SelectQueryable):
     """
     Performs a projection of a collection
     """
+
     def __init__(self, collection, pipeline, node, include_id=False):
-        super(DictSelectQueryable, self).__init__(collection, pipeline, node, include_id)
+        super(DictSelectQueryable, self).__init__(
+            collection, pipeline, node, include_id
+        )
 
     @property
     def projection(self):
@@ -278,8 +319,11 @@ class CollectionSelectQueryable(DictSelectQueryable):
     """
     Performs a projection of a collection when ast.Tuple or ast.List is encountered
     """
+
     def __init__(self, collection, pipeline, node, include_id=False):
-        super(CollectionSelectQueryable, self).__init__(collection, pipeline, node, include_id)
+        super(CollectionSelectQueryable, self).__init__(
+            collection, pipeline, node, include_id
+        )
 
     def __iter__(self):
         for e in self.collection.aggregate(self.pipeline):
@@ -290,6 +334,7 @@ class OrderedQueryable(Queryable):
     """
     Sorts a collection
     """
+
     def __init__(self, collection, model, pipeline, node, direction=1):
         super(OrderedQueryable, self).__init__(collection, model)
         self.pipeline = pipeline
@@ -322,6 +367,7 @@ class WhereQueryable(Queryable):
     """
     Filters a collection
     """
+
     def __init__(self, collection, model, pipeline, node):
         super(WhereQueryable, self).__init__(collection, model)
         self.pipeline = pipeline.copy()
@@ -336,7 +382,7 @@ class WhereQueryable(Queryable):
             yield i
 
     def where(self, func):
-        fd = self.pipeline.remove(self.filter_dict)
+        self.pipeline.remove(self.filter_dict)
         t = LambdaExpression.parse(func)
         j = json.loads(t.body.mongo)
         if "$and" in self.filter_dict["$match"]:

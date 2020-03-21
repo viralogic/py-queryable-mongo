@@ -7,8 +7,9 @@ class TestCollectionLambdaTranslator(TestCase):
     """
     Test the methods in the TestCollectionLambdaTranslator class
     """
+
     def test_Eq(self):
-        t = LambdaExpression.parse(lambda x: x.first_name == 'Bruce')
+        t = LambdaExpression.parse(lambda x: x.first_name == "Bruce")
         print(ast.dump(t))
         self.assertIsInstance(t.body.value.ops[0], ast.Eq)
         self.assertEqual("$eq", t.body.value.ops[0].mongo)
@@ -74,10 +75,13 @@ class TestCollectionLambdaTranslator(TestCase):
         self.assertEqual(t.body.right.mongo, t.body.right.n)
 
     def test_return(self):
-        t = LambdaExpression.parse(lambda x: (x.gpa > 10 and x.first_name == u'Bruce') or x.first_name == u'Dustin')
+        t = LambdaExpression.parse(
+            lambda x: (x.gpa > 10 and x.first_name == u"Bruce")
+            or x.first_name == u"Dustin"
+        )
         self.assertEqual(
             '{"$or": ["{\\"$and\\": [\\"{\\\\\\"gpa\\\\\\": {\\\\\\"$gt\\\\\\": 10}}\\", \\"{\\\\\\"first_name\\\\\\": {\\\\\\"$eq\\\\\\": \\\\\\"Bruce\\\\\\"}}\\"]}", "{\\"first_name\\": {\\"$eq\\": \\"Dustin\\"}}"]}',
-            t.body.mongo
+            t.body.mongo,
         )
 
     def test_num_compare(self):
@@ -86,7 +90,7 @@ class TestCollectionLambdaTranslator(TestCase):
         self.assertEqual(t.body.comparators[0].mongo, t.body.comparators[0].n)
 
     def test_str(self):
-        t = LambdaExpression.parse(lambda x: x.first_name == 'Bruce')
+        t = LambdaExpression.parse(lambda x: x.first_name == "Bruce")
         self.assertIsInstance(t.body.comparators[0], ast.Str)
         self.assertEqual(t.body.comparators[0].mongo, t.body.comparators[0].s)
 
@@ -105,7 +109,9 @@ class TestCollectionLambdaTranslator(TestCase):
         self.assertEqual(t.body.op.mongo, "$and")
 
     def test_or(self):
-        t = LambdaExpression.parse(lambda x: x.gpa >= 10 or x.first_name == u'Bruce')
+        t = LambdaExpression.parse(
+            lambda x: x.gpa >= 10 or x.first_name == u"Bruce"
+        )
         self.assertIsInstance(t.body.op, ast.Or)
         self.assertEqual(t.body.op.mongo, "$or")
 
@@ -117,27 +123,50 @@ class TestCollectionLambdaTranslator(TestCase):
     def test_boolop(self):
         t = LambdaExpression.parse(lambda x: x.gpa >= 10 and x.gpa <= 50)
         self.assertIsInstance(t.body.value, ast.BoolOp)
-        self.assertEqual('{"$and": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}"]}', t.body.value.mongo)
+        self.assertEqual(
+            '{"$and": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}"]}',
+            t.body.value.mongo,
+        )
 
     def test_boolop_complex(self):
-        t = LambdaExpression.parse(lambda x: x.gpa >= 10 and x.gpa <= 50 and x.last_name == "Fenske")
+        t = LambdaExpression.parse(
+            lambda x: x.gpa >= 10 and x.gpa <= 50 and x.last_name == "Fenske"
+        )
         self.assertIsInstance(t.body.value, ast.BoolOp)
-        self.assertEqual('{"$and": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}', t.body.mongo)
+        self.assertEqual(
+            '{"$and": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}',
+            t.body.mongo,
+        )
 
     def test_boolop_or(self):
-        t = LambdaExpression.parse(lambda x: x.gpa >= 10 or x.gpa <= 50 or x.last_name == "Fenske")
+        t = LambdaExpression.parse(
+            lambda x: x.gpa >= 10 or x.gpa <= 50 or x.last_name == "Fenske"
+        )
         self.assertIsInstance(t.body.value, ast.BoolOp)
-        self.assertEqual('{"$or": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}', t.body.value.mongo)
+        self.assertEqual(
+            '{"$or": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}',
+            t.body.value.mongo,
+        )
 
     def test_boolop_or_brackets(self):
-        t = LambdaExpression.parse(lambda x: (x.gpa >= 10 and x.gpa <= 50) or x.last_name == "Fenske")
+        t = LambdaExpression.parse(
+            lambda x: (x.gpa >= 10 and x.gpa <= 50) or x.last_name == "Fenske"
+        )
         self.assertIsInstance(t.body.value, ast.BoolOp)
-        self.assertEqual('{"$or": ["{\\"$and\\": [\\"{\\\\\\"gpa\\\\\\": {\\\\\\"$gte\\\\\\": 10}}\\", \\"{\\\\\\"gpa\\\\\\": {\\\\\\"$lte\\\\\\": 50}}\\"]}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}', t.body.value.mongo)
+        self.assertEqual(
+            '{"$or": ["{\\"$and\\": [\\"{\\\\\\"gpa\\\\\\": {\\\\\\"$gte\\\\\\": 10}}\\", \\"{\\\\\\"gpa\\\\\\": {\\\\\\"$lte\\\\\\": 50}}\\"]}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}',
+            t.body.value.mongo,
+        )
 
     def test_boolop_and_brackets(self):
-        t = LambdaExpression.parse(lambda x: (x.gpa >= 10 or x.gpa <= 50) and x.last_name == "Fenske")
+        t = LambdaExpression.parse(
+            lambda x: (x.gpa >= 10 or x.gpa <= 50) and x.last_name == "Fenske"
+        )
         self.assertIsInstance(t.body.value, ast.BoolOp)
-        self.assertEqual('{"$and": ["{\\"$or\\": [\\"{\\\\\\"gpa\\\\\\": {\\\\\\"$gte\\\\\\": 10}}\\", \\"{\\\\\\"gpa\\\\\\": {\\\\\\"$lte\\\\\\": 50}}\\"]}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}', t.body.value.mongo)
+        self.assertEqual(
+            '{"$and": ["{\\"$or\\": [\\"{\\\\\\"gpa\\\\\\": {\\\\\\"$gte\\\\\\": 10}}\\", \\"{\\\\\\"gpa\\\\\\": {\\\\\\"$lte\\\\\\": 50}}\\"]}", "{\\"last_name\\": {\\"$eq\\": \\"Fenske\\"}}"]}',
+            t.body.value.mongo,
+        )
 
     def test_binop(self):
         t = LambdaExpression.parse(lambda x: x.gpa + 10)
@@ -160,7 +189,10 @@ class TestCollectionLambdaTranslator(TestCase):
 
     def test_lambda(self):
         t = LambdaExpression.parse(lambda x: x.gpa >= 10 and x.gpa <= 50)
-        self.assertEqual('{"$and": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}"]}', t.body.mongo)
+        self.assertEqual(
+            '{"$and": ["{\\"gpa\\": {\\"$gte\\": 10}}", "{\\"gpa\\": {\\"$lte\\": 50}}"]}',
+            t.body.mongo,
+        )
 
     def test_simple_select(self):
         t = LambdaExpression.parse(lambda x: x.first_name)
@@ -168,16 +200,27 @@ class TestCollectionLambdaTranslator(TestCase):
 
     def test_list_select(self):
         t = LambdaExpression.parse(lambda x: [x.first_name, x.last_name, x.gpa])
-        self.assertEqual('{"$project": {"first_name": "$first_name", "last_name": "$last_name", "gpa": "$gpa"}}', t.body.mongo)
+        self.assertEqual(
+            '{"$project": {"first_name": "$first_name", "last_name": "$last_name", "gpa": "$gpa"}}',
+            t.body.mongo,
+        )
 
     def test_tuple_select(self):
         t = LambdaExpression.parse(lambda x: (x.first_name, x.last_name, x.gpa))
-        self.assertEqual('{"$project": {"first_name": "$first_name", "last_name": "$last_name", "gpa": "$gpa"}}', t.body.mongo)
+        self.assertEqual(
+            '{"$project": {"first_name": "$first_name", "last_name": "$last_name", "gpa": "$gpa"}}',
+            t.body.mongo,
+        )
 
     def test_dict_select(self):
-        t = LambdaExpression.parse(lambda x: {
-            'FirstName': x.first_name,
-            'LastName': x.last_name,
-            'GPA': x.gpa}
+        t = LambdaExpression.parse(
+            lambda x: {
+                "FirstName": x.first_name,
+                "LastName": x.last_name,
+                "GPA": x.gpa,
+            }
         )
-        self.assertEqual('{"$project": {"FirstName": "$first_name", "LastName": "$last_name", "GPA": "$gpa"}}', t.body.mongo)
+        self.assertEqual(
+            '{"$project": {"FirstName": "$first_name", "LastName": "$last_name", "GPA": "$gpa"}}',
+            t.body.mongo,
+        )
