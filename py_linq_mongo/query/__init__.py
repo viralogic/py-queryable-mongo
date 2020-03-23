@@ -156,9 +156,15 @@ class Queryable(object):
         return predicate_count == count
 
     def first(self, func=None):
+        result = self
         if func is not None:
-            return self.where(func).take(1).as_enumerable().first()
-        return self.take(1).as_enumerable().first()
+            result = result.where(func).take(1)
+        else:
+            result = result.take(1)
+        result = list(result)
+        if not result:
+            raise exceptions.NoElementsError()
+        return result[0]
 
     def first_or_default(self, func=None):
         try:
@@ -215,11 +221,7 @@ class SelectQueryable(abc.ABC, Queryable):
     def __init__(self, collection, pipeline, node, include_id):
         self.include_id = include_id
         self.node = node
-        self.pipeline = (
-            list(pipeline).append(self.projection)
-            if self.projection is not None
-            else list(pipeline)
-        )
+        self.pipeline = [*pipeline, self.projection]
         self.collection = collection
 
     @abc.abstractproperty
@@ -268,11 +270,7 @@ class ScalarSelectQueryable(object):
         if not isinstance(t.body.value, ast.Name):
             raise TypeError("lambda function must select a property")
         self.node = t.body
-        self.pipeline = (
-            list(pipeline).append(self.grouping)
-            if self.grouping is not None
-            else list(pipeline)
-        )
+        self.pipeline = [*pipeline, self.grouping]
 
     @property
     def grouping(self):
@@ -370,11 +368,10 @@ class WhereQueryable(Queryable):
 
     def __init__(self, collection, model, pipeline, node):
         super(WhereQueryable, self).__init__(collection, model)
-        self.pipeline = pipeline.copy()
         self.node = node
         self.filter_dict = {}
         self.filter_dict["$match"] = json.loads(self.node.mongo)
-        self.pipeline.append(self.filter_dict)
+        self.pipeline = [*pipeline, self.filter_dict]
 
     def __iter__(self):
         for item in self.collection.aggregate(self.pipeline):
