@@ -139,9 +139,7 @@ class Queryable(object):
         func -> lambda expression used to filter a sequence
         return -> True if sequence does contain elements else False
         """
-        return (
-            self.count() > 0 if func is None else self.where(func).count() > 0
-        )
+        return self.first_or_default(func) is not None
 
     def all(self, func=None):
         """
@@ -207,10 +205,145 @@ class Queryable(object):
             return None
 
     def as_enumerable(self):
-        return py_linq.Enumerable(self)
+        return py_linq.Enumerable((item for item in self))
 
     def to_list(self):
         return self.as_enumerable().to_list()
+
+    def aggregate(self, seed, func):
+        """
+        Applies an accumulator function over a sequence. The specified seed value is used
+        as the initial accumulator value
+        """
+        return self.as_enumerable().aggregate(func, seed)
+
+    def concat(self, sequence):
+        """
+        Concatenates two sequences
+        """
+        return self.as_enumerable().concat(sequence)
+
+    def contains(self, item, func=None):
+        """
+        Determines whether an Queryable contains the given element
+        """
+        if func is not None:
+            return self.any(lambda e: func(e) == item)
+        return self.any(lambda e: e == item)
+
+    def default_if_empty(self):
+        """
+        Returns the elements of the specified sequence or a singleton Enumerable collection containing None
+        """
+        return self if self.any() else py_linq.Enumerable().default_if_empty()
+
+    def distinct(self, func=lambda x: x):
+        """
+        Returns distinct elements from a sequence. If a selector function is given, then
+        then the function is used as a comparison function to compare equality
+        """
+        raise NotImplementedError()
+
+    def element_at(self, index):
+        """
+        Gets the element at the given index
+        """
+        raise NotImplementedError()
+
+    def element_at_or_default(self, index):
+        """
+        Gets the element at the given index or None if index is out of range
+        """
+        raise NotImplementedError()
+
+    def except_(self, queryable, func=lambda x: x):
+        """
+        Produces the set difference between two Queryable collections
+        """
+        raise NotImplementedError()
+
+    def intersect(self, queryable, func=lambda x: x):
+        """
+        Produces the set intersection between two Queryable collections
+        """
+        raise NotImplementedError()
+
+    def group_by(self, func=lambda x: x):
+        """
+        Groups the elements of a sequece by the given key
+        """
+        raise NotImplementedError()
+
+    def group_join(self, inner_collection, outer_key, inner_key, result_func):
+        """
+        Correlates the elements of two sequences based on key equality and groups the results.
+        The default equality comparer is used to compare keys
+        """
+        raise NotImplementedError()
+
+    def join(self, inner_collection, outer_key, inner_key, result_func):
+        """
+        Correlates the elements of two sequences based on matching keys
+        """
+        raise NotImplementedError()
+
+    def last(self, func=None):
+        """
+        Returns the last element in a sequence
+        """
+        raise NotImplementedError()
+
+    def last_or_default(self, func=None):
+        """
+        Returns the last element of a sequence, or None if no element is found
+        """
+        raise NotImplementedError()
+
+    def reverse(self):
+        """
+        Inverts the order of the elements in a sequence
+        """
+        raise NotImplementedError()
+
+    def select_many(self, func=None):
+        """
+        Projects each element of a sequence to an IEnumerable<T> and
+        combines the resulting sequences into one sequence of type Queryable
+        """
+        raise NotImplementedError()
+
+    def sequence_equal(self, collection):
+        """
+        Determines whether two sequences are equal
+        """
+        raise NotImplementedError()
+
+    def skip_while(self, predicate):
+        """
+        Bypasses elements in a sequence as long as a specified condition is true and
+        then returns the remaining elements
+        """
+        raise NotImplementedError()
+
+    def take_while(self, predicate):
+        """
+        Returns elements from a sequence as long as a specified condition is true,
+        and then skips the remaining elements
+        """
+        raise NotImplementedError()
+
+    def union(self, collection, func=None):
+        """
+        Produces the set union of two sequences by using a specified lambda function to evaluate
+        equality
+        """
+        raise NotImplementedError()
+
+    def zip(self, collection, func):
+        """
+        Merges two sequences by using the specified predicate function
+        """
+        raise NotImplementedError()
 
 
 class SelectQueryable(abc.ABC, Queryable):

@@ -3,6 +3,7 @@ import mongomock
 from py_linq_mongo.query import Queryable
 import datetime
 from . import SaleModel, LeagueModel, StudentModel
+import py_linq
 from py_linq import exceptions
 from .data import MongoData
 
@@ -199,6 +200,14 @@ class QueryableTests(TestCase):
         )
         self.assertEqual(20, query.price)
 
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .select(lambda s: s.item)
+            .first()
+        )
+
+        self.assertIsNotNone
+
     def test_single(self):
         query = Queryable(self.sales_collection, SaleModel).single(
             lambda s: s.item == "jkl"
@@ -333,3 +342,26 @@ class QueryableTests(TestCase):
         )
         avg = 28 / 5
         self.assertEqual(avg, query)
+
+    def test_default_if_empty(self):
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .where(lambda s: s.item == "bwf")
+            .default_if_empty()
+        )
+        self.assertIsNotNone(query)
+        self.assertIsInstance(query, py_linq.Enumerable)
+        self.assertEqual(1, query.count())
+        self.assertIsNone(None, query.next())
+
+    def test_as_enumerable(self):
+        query = Queryable(self.collection, LeagueModel).as_enumerable()
+        self.assertEqual(1, query.count())
+        league = query.first()
+        self.assertIsNotNone(league)
+
+    def test_aggregate(self):
+        query = Queryable(self.sales_collection, SaleModel).aggregate(
+            0, lambda result, item: result + item.price * item.quantity
+        )
+        self.assertEqual(215, query)
