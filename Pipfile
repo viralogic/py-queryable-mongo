@@ -5,7 +5,7 @@ verify_ssl = true
 
 [dev-packages]
 black = "*"
-pytest = "<=4.0.0"
+pytest = "*"
 coverage = "*"
 pytest-cov = "*"
 flake8 = "*"

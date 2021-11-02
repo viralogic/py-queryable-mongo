@@ -4,6 +4,8 @@ from ..expressions import LambdaExpression
 import abc
 import py_linq
 from py_linq import exceptions
+from py_linq import core
+from collections import deque
 
 
 class Queryable(object):
@@ -29,6 +31,13 @@ class Queryable(object):
         """
         for item in self.collection.aggregate(self.pipeline):
             yield type(self.model.__class__.__name__, (object,), item)
+
+    def next(self):
+        item = next(self.collection.aggregate(self.pipeline))
+        return type(self.model.__class__.__name__, (object, ), item)
+
+    def __next__(self):
+        return self.next()
 
     def count(self):
         """
@@ -73,7 +82,6 @@ class Queryable(object):
 
     def skip(self, offset):
         """
-
         """
         self.pipeline.append({"$skip": offset})
         return self
@@ -154,6 +162,7 @@ class Queryable(object):
         return predicate_count == count
 
     def first(self, func=None):
+        
         result = self
         if func is not None:
             result = result.where(func).take(1)
@@ -231,11 +240,11 @@ class Queryable(object):
             return self.any(lambda e: func(e) == item)
         return self.any(lambda e: e == item)
 
-    def default_if_empty(self):
+    def default_if_empty(self, value=None):
         """
         Returns the elements of the specified sequence or a singleton Enumerable collection containing None
         """
-        return self if self.any() else py_linq.Enumerable().default_if_empty()
+        return self if self.any() else py_linq.Enumerable().default_if_empty(value)
 
     def distinct(self, func=lambda x: x):
         """
@@ -248,13 +257,21 @@ class Queryable(object):
         """
         Gets the element at the given index
         """
-        raise NotImplementedError()
+        if not isinstance(index, int):
+            raise TypeError("Must be an integer")
+        try:
+            return self.skip(index).first()
+        except exceptions.NoElementsError:
+            raise IndexError
 
     def element_at_or_default(self, index):
         """
         Gets the element at the given index or None if index is out of range
         """
-        raise NotImplementedError()
+        try:
+            return self.element_at(index)
+        except IndexError:
+            return None
 
     def except_(self, queryable, func=lambda x: x):
         """
@@ -272,7 +289,10 @@ class Queryable(object):
         """
         Groups the elements of a sequece by the given key
         """
-        raise NotImplementedError()
+        t = LambdaExpression.parse(func)
+        return GroupedQueryable(
+            self.collection, self.model, self.pipeline, t.body
+        )
 
     def group_join(self, inner_collection, outer_key, inner_key, result_func):
         """
@@ -291,19 +311,24 @@ class Queryable(object):
         """
         Returns the last element in a sequence
         """
-        raise NotImplementedError()
+        return self.reverse().first()
 
     def last_or_default(self, func=None):
         """
         Returns the last element of a sequence, or None if no element is found
         """
-        raise NotImplementedError()
+        return self.reverse().first_or_default(func)
 
     def reverse(self):
         """
         Inverts the order of the elements in a sequence
         """
-        raise NotImplementedError()
+        self.pipeline.append({
+            "$sort": {
+                "_id": -1
+            }
+        })
+        return self
 
     def select_many(self, func=None):
         """
@@ -361,6 +386,9 @@ class SelectQueryable(abc.ABC, Queryable):
     def projection(self):
         raise NotImplementedError()
 
+    def reverse(self):
+        return self.as_enumerable().reverse()
+
 
 class SimpleSelectQueryable(SelectQueryable):
     """
@@ -381,6 +409,13 @@ class SimpleSelectQueryable(SelectQueryable):
     def __iter__(self):
         for e in self.collection.aggregate(self.pipeline):
             yield tuple([v for k, v in e.items()])
+
+    def next(self):
+        e = next(self.collection.aggregate(self.pipeline))
+        return tuple([v for k, v in e.items()])
+
+    def __next__(self):
+        return self.next()
 
 
 class ScalarSelectQueryable(object):
@@ -445,6 +480,12 @@ class DictSelectQueryable(SelectQueryable):
     def __iter__(self):
         return self.collection.aggregate(self.pipeline).__iter__()
 
+    def next(self):
+        return next(self.collection.aggregate(self.pipeline))
+
+    def __next__(self):
+        return self.next()
+
 
 class CollectionSelectQueryable(DictSelectQueryable):
     """
@@ -460,6 +501,13 @@ class CollectionSelectQueryable(DictSelectQueryable):
         for e in self.collection.aggregate(self.pipeline):
             yield tuple([v for k, v in e.items()])
 
+    def next(self):
+        e = next(self.collection.aggregate(self.pipeline))
+        return tuple([v for k, v in e.items()])
+
+    def __next__(self):
+        return self.next()
+
 
 class OrderedQueryable(Queryable):
     """
@@ -470,8 +518,9 @@ class OrderedQueryable(Queryable):
         super(OrderedQueryable, self).__init__(collection, model)
         self.pipeline = pipeline
         self.node = node
+        self.direction = direction
         self.sort_dict = {"$sort": {}}
-        self.sort_dict["$sort"][self.node.mongo] = direction
+        self.sort_dict["$sort"][self.node.mongo] = self.direction
 
     def __iter__(self):
         self.pipeline.append(self.sort_dict)
@@ -492,6 +541,9 @@ class OrderedQueryable(Queryable):
     def then_by_descending(self, func):
         self._addSortKey(func, -1)
         return self
+
+    def reverse(self):
+        return self.as_enumerable().reverse()
 
 
 class WhereQueryable(Queryable):
@@ -522,3 +574,38 @@ class WhereQueryable(Queryable):
             self.filter_dict["$match"] = q
         self.pipeline.append(self.filter_dict)
         return self
+
+
+class GroupedQueryable(Queryable):
+    """
+    Groups a collection based on given key
+    """
+    def __init__(self, collection, model, pipeline, node):
+        super(GroupedQueryable, self).__init__(collection, model)
+        self.node = node
+        self.group_dict = {
+            "$group": {}
+        }
+        self.group_dict["$group"]["_id"] = "${0}".format(self.node.mongo)
+        self.group_dict["$group"]["items"] = {
+            "$push": "$$ROOT"
+        }
+        self.pipeline = [*pipeline, self.group_dict]
+
+    def __iter__(self):
+        for g in self.collection.aggregate(self.pipeline):
+            k = {}
+            k[self.node.mongo] = g["_id"]
+            key = core.Key(k)
+            data = []
+            for i in g["items"]:
+                element = type(self.model.__class__.__name__, (object,), i)
+                data.append(element)
+            yield py_linq.py_linq.Grouping(key, data)
+
+
+
+    
+
+    
+

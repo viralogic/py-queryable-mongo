@@ -2,10 +2,20 @@ from unittest import TestCase
 import mongomock
 from py_linq_mongo.query import Queryable
 import datetime
-from . import SaleModel, LeagueModel, StudentModel
+from . import (
+    SaleModel,
+    LeagueModel,
+    StudentModel,
+)
 import py_linq
-from py_linq import exceptions
+from py_linq import (
+    exceptions,
+)
+from py_linq.py_linq import Grouping
 from .data import MongoData
+from py_linq_mongo.query import (
+    GroupedQueryable,
+)
 
 
 class QueryableTests(TestCase):
@@ -208,6 +218,14 @@ class QueryableTests(TestCase):
 
         self.assertIsNotNone
 
+    def test_last(self):
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by(lambda s: s.date)
+            .last()
+        )
+        self.assertEqual(datetime.datetime(year=2014, month=2, day=15, hour=9, minute=5, second=0), query.date)
+
     def test_single(self):
         query = Queryable(self.sales_collection, SaleModel).single(
             lambda s: s.item == "jkl"
@@ -219,6 +237,12 @@ class QueryableTests(TestCase):
             lambda s: s.price > 20
         )
         self.assertRaises(exceptions.NoElementsError, query.first, None)
+
+    def test_no_last(self):
+        query = Queryable(self.sales_collection, SaleModel).where(
+            lambda s: s.price > 20
+        )
+        self.assertRaises(exceptions.NoElementsError, query.last, None)
 
     def test_no_single(self):
         query = Queryable(self.sales_collection, SaleModel)
@@ -243,6 +267,15 @@ class QueryableTests(TestCase):
         self.assertIsNotNone(query)
         self.assertEqual(datetime.datetime(2014, 1, 1, 8, 0), query.date)
 
+    def test_last_or_default(self):
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by(lambda s: s.date)
+            .last_or_default()
+        )
+        self.assertIsNotNone(query)
+        self.assertEqual(datetime.datetime(year=2014, month=2, day=15, hour=9, minute=5, second=0), query.date)
+
     def test_no_first_or_default(self):
         query = (
             Queryable(self.sales_collection, SaleModel)
@@ -253,6 +286,14 @@ class QueryableTests(TestCase):
 
         query = Queryable(self.sales_collection, SaleModel).first_or_default(
             lambda s: s.price > 20
+        )
+        self.assertIsNone(query)
+
+    def test_no_last_or_default(self):
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .where(lambda s: s.price > 20)
+            .last_or_default()
         )
         self.assertIsNone(query)
 
@@ -352,7 +393,7 @@ class QueryableTests(TestCase):
         self.assertIsNotNone(query)
         self.assertIsInstance(query, py_linq.Enumerable)
         self.assertEqual(1, query.count())
-        self.assertIsNone(None, query.next())
+        self.assertIsNone(query.to_list()[0])
 
     def test_as_enumerable(self):
         query = Queryable(self.collection, LeagueModel).as_enumerable()
@@ -365,3 +406,106 @@ class QueryableTests(TestCase):
             0, lambda result, item: result + item.price * item.quantity
         )
         self.assertEqual(215, query)
+
+    def test_element_at_index_error(self):
+        self.assertRaises(IndexError, Queryable(self.sales_collection, SaleModel).element_at, 5)
+
+    def test_element_at_or_default_index_error(self):
+        self.assertIsNone(Queryable(self.sales_collection, SaleModel).element_at_or_default(5))
+
+    def test_element_at(self):
+        self.assertEqual("xyz",Queryable(self.sales_collection, SaleModel).element_at(2).item)
+        self.assertEqual("xyz", Queryable(self.sales_collection, SaleModel).element_at_or_default(2).item)
+
+    def test_reverse_pre_select(self):
+        truth = list(reversed(Queryable(self.sales_collection, SaleModel).select(lambda sc: sc.item).to_list()))
+        test = Queryable(self.sales_collection, SaleModel).reverse().select(lambda sc: sc.item).to_list()
+        self.assertListEqual(truth, test)
+
+    def test_reverse_post_select_simple(self):
+        truth = list(reversed(Queryable(self.sales_collection, SaleModel).select(lambda sc: sc.item).to_list()))
+        test = Queryable(self.sales_collection, SaleModel).select(lambda sc: sc.item).reverse().to_list()
+        self.assertListEqual(truth, test)
+
+    def test_reverse_post_select_dict(self):
+        truth = list(reversed(
+            Queryable(self.sales_collection, SaleModel).select(lambda sc: {
+                "item": sc.item,
+                "price": sc.price
+            }).to_list()
+        ))
+        test = Queryable(self.sales_collection, SaleModel).select(lambda sc: {
+            "item": sc.item,
+            "price": sc.price
+        }).reverse().to_list()
+        self.assertListEqual(truth, test)
+
+    def test_reverse_post_select_list(self):
+        truth = list(reversed(
+            Queryable(self.sales_collection, SaleModel).select(lambda sc: [ sc.item, sc.price ]).to_list()
+        ))
+        test = Queryable(self.sales_collection, SaleModel).select(lambda sc: [ sc.item, sc.price ]).reverse().to_list()
+        self.assertListEqual(truth, test)
+
+    def test_reverse_post_select_tuple(self):
+        truth = list(reversed(
+            Queryable(self.sales_collection, SaleModel).select(lambda sc: ( sc.item, sc.price )).to_list()
+        ))
+        test = Queryable(self.sales_collection, SaleModel).select(lambda sc: ( sc.item, sc.price )).reverse().to_list()
+        self.assertListEqual(truth, test)
+
+    def test_order_by_reverse(self):
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by(lambda s: s.price)
+            .reverse()
+            .to_list()[0]
+        )
+        self.assertEqual(20, query.price)
+
+    def test_order_by_descending_reverse(self):
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by_descending(lambda s: s.price)
+            .reverse()
+            .to_list()[0]
+        )
+        self.assertEqual(5, query.price)
+
+    def test_order_by_then_by(self):
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+            .order_by(lambda s: s.price)
+            .then_by(lambda s: s.date)
+            .reverse()
+            .to_list()[3]
+        )
+        self.assertEqual(5, query.price)
+        self.assertEqual(datetime.datetime(2014, 2, 15, 9, 5), query.date)
+
+    def test_where_reverse(self):
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+                .where(lambda sc: sc.item == "abc")
+                .order_by(lambda sc: sc.quantity)
+                .reverse()
+                .to_list()[0]
+        )
+        self.assertEqual(10, query.quantity)
+
+    def test_group_by(self):
+        query = (
+            Queryable(self.sales_collection, SaleModel)
+                .group_by(lambda sc: sc.price)
+        )
+        self.assertIsInstance(query, GroupedQueryable)
+        first_group = query.as_enumerable()\
+            .order_by(lambda g: g.key.price).first()
+        self.assertIsInstance(first_group, Grouping)
+        self.assertEqual(5, first_group.first().price)
+
+        last_group = query.as_enumerable()\
+            .order_by_descending(lambda g: g.key.price).first()
+        self.assertEqual(20, last_group.first().price)
+
+
